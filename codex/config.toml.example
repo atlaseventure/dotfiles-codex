@@ -1,0 +1,22 @@
+model_provider = "custom"
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+disable_response_storage = true
+personality = "pragmatic"
+
+model_context_window = 1000000
+model_auto_compact_token_limit = 800000
+
+[model_providers.custom]
+name = "custom"
+wire_api = "responses"
+requires_openai_auth = true
+base_url = "https://api.openai.com/v1"
+
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.grep_app]
+url = "https://mcp.grep.app"
+
