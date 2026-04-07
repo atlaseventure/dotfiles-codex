@@ -7,6 +7,9 @@ personality = "pragmatic"
 model_context_window = 1000000
 model_auto_compact_token_limit = 800000
 
+[windows]
+sandbox = "elevated"
+
 [model_providers.custom]
 name = "custom"
 wire_api = "responses"

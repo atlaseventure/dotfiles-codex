@@ -6,14 +6,21 @@
 
 - `skills/`：使用 Git 管理的自定义 skills
 - `script/link-agent-skills.sh`：将仓库中的 skills 软链接到用户目录
+- `script/link-agent-skills.ps1`：Windows PowerShell 版本的链接脚本
 - `codex/config.toml.example`：脱敏后的配置模板
 
 ## 安装方式
 
-执行：
+macOS / Linux 执行：
 
 ```sh
 ./script/link-agent-skills.sh
+```
+
+Windows PowerShell 执行：
+
+```powershell
+.\script\link-agent-skills.ps1
 ```
 
 脚本会将仓库中的 skills 链接到 `$HOME/.agents/skills`。
