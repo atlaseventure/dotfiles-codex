@@ -1,39 +1,22 @@
 # dotfiles-codex
 
-Personal-use Codex skill repository.
+这是一个用于管理个人自用 Codex skills 的仓库。
 
-## Layout
+## 目录结构
 
-- `skills/`: custom skills tracked in git
-- `script/link-agent-skills.sh`: symlink tracked skills into the user skill directory
-- `codex/config.toml.example`: sanitized config template
+- `skills/`：使用 Git 管理的自定义 skills
+- `script/link-agent-skills.sh`：将仓库中的 skills 软链接到用户目录
+- `codex/config.toml.example`：脱敏后的配置模板
 
-## Scope
+## 安装方式
 
-This repository tracks only user-authored skills and safe templates.
-
-Do not commit runtime state such as:
-
-- `~/.codex/auth.json`
-- `~/.codex/sessions/`
-- `~/.codex/log/`
-- `~/.codex/logs_*.sqlite`
-- `~/.codex/state_*.sqlite`
-- `~/.codex/plugins/cache/`
-- any `config.toml` containing secrets
-
-## Install
-
-Run:
+执行：
 
 ```sh
 ./script/link-agent-skills.sh
 ```
 
-The script links tracked skills into `$HOME/.agents/skills`.
+脚本会将仓库中的 skills 链接到 `$HOME/.agents/skills`。
 
-If a target skill already exists as a real directory, the script moves it aside with a timestamped `.bak.*` suffix before creating the symlink.
+如果目标位置已经存在同名真实目录，脚本会先将其备份为带时间戳的 `.bak.*`，再创建软链接。
 
-## Current Skills
-
-- `commit-worktree`
