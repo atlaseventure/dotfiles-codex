@@ -1,4 +1,4 @@
 interface:
   display_name: "Commit Worktree"
-  short_description: "按 type(scope): message 规范整理并提交当前工作区改动"
-  default_prompt: "Use $commit-worktree to inspect the current worktree, compose a conventional commit message, and commit the relevant changes."
+  short_description: "结合相关提交历史稳定 scope，并按 type(scope): message 规范提交改动"
+  default_prompt: "Use $commit-worktree to inspect the current worktree, check recent related commit history for scope consistency, compose a conventional commit message, and commit the relevant changes."
