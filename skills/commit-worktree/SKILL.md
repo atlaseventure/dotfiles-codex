@@ -19,7 +19,7 @@ The default convention is `type(scope): message`:
 
 1. Inspect the current worktree with non-interactive git commands.
 2. Identify what changed before writing the commit message. Prefer `git status --short`, `git diff --stat`, `git diff --cached --stat`, and targeted file reads when needed.
-3. Read recent commit history before choosing `scope`. Start with recent commits that touch the same files or directories, such as `git log --oneline -n 10 -- <path>` or `git log --stat -n 10 -- <path>`. If the path history is too sparse, inspect a short slice of recent repo history and look for the established scope naming used for the same feature or module.
+3. Identify the concrete subsystem from the diff intent and changed paths before choosing `scope`. Then read recent commit history for those paths, such as `git log --oneline -n 10 -- <path>` or `git log --stat -n 10 -- <path>`, to calibrate naming without overriding a clearer subsystem.
 4. If the request implies committing the current workspace, stage the relevant tracked and untracked files needed for that commit.
 5. Compose a commit message in `type(scope): message` format.
 6. Run a normal `git commit -m` command. Do not amend, force-push, or rewrite history unless the user explicitly asks.
@@ -38,26 +38,29 @@ Choose `type` from the change intent. Common defaults:
 - `ci`: CI workflow changes
 - `chore`: routine maintenance that does not fit the above
 
-Choose a short English `scope` that reflects the affected area, such as `build`, `ride`, `login`, `network`, `ui`, or `repo`.
+Choose a short English `scope` that reflects the concrete affected area, such as `flash`, `boot`, `rootfs`, `runtime`, `toolchain`, `board`, `serial`, `docs`, `login`, `network`, or `ui`. Use broad scopes such as `repo` only when no narrower subsystem can be defended from the diff.
 
 Pick `scope` in this order:
 
-1. Reuse the scope from recent relevant commits when the current change continues the same feature, module, or workflow.
-2. If multiple recent commits exist, prefer the scope that appears consistently across the touched paths rather than inventing a new synonym.
-3. Only infer a new narrow scope from filenames and diff content when recent history does not provide a clear precedent.
-4. If no specific module is clear even after checking history, use `repo`.
+1. Identify the concrete subsystem from the diff intent and changed paths. Prefer the user-visible or operational domain over the broad directory name when the change has a clear behavior, such as `flash` for USB flashing and partition layout changes.
+2. Reuse a recent relevant scope only when it is both specific and semantically correct for the current change.
+3. Treat generic scopes such as `repo`, `build`, `core`, `common`, `misc`, and `project` as weak signals. Do not reuse them when the diff supports a clearer subsystem.
+4. If multiple files are touched but all changes support one behavior, choose the behavior scope rather than the broad repository or tool scope.
+5. If several specific subsystems are genuinely changed, choose the primary behavior being delivered. Use `repo` only when no narrower scope can be defended.
 
 Write `message` in concise Chinese by default. It should summarize the main change, not the mechanical action. Prefer forms like:
 
 - `docs(build): 新增本地构建说明文档`
 - `fix(login): 修复短信验证码重复发送问题`
 - `refactor(network): 整理请求错误处理逻辑`
+- `fix(flash): 修复 A/B 分区 USB 烧录链`
 
 ## Guardrails
 
 - If there are no changes to commit, say so instead of creating an empty commit.
 - If the worktree contains unrelated changes and the user asked to commit "current workspace content", include them unless there is clear evidence they should be separated.
-- Do not choose `scope` from filenames alone when recent commit history already shows an established name for the same area.
-- If recent history shows inconsistent scopes for what appears to be the same area, prefer the most recent repeated scope and keep naming stable within the same feature line.
+- Do not choose `scope` from filenames alone when the diff behavior points to a clearer subsystem.
+- Do not let repeated generic history create scope lock-in. A repeated `repo` or `build` scope is not a reason to avoid a more precise current scope.
+- If recent history shows inconsistent specific scopes for what appears to be the same area, prefer the most recent specific scope that matches the current diff behavior.
 - Keep the message stable and plain; avoid mixing Chinese and English unless required by established project conventions.
 - Use non-interactive git commands only.
