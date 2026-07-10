@@ -1,0 +1,7 @@
+interface:
+  display_name: "方案拷问"
+  short_description: "逐项追问并压力测试方案，直到关键决策与依赖关系形成共识"
+  default_prompt: "使用 $grilling 逐项压力测试我的方案，并一次只向我提出一个决策问题。"
+
+policy:
+  allow_implicit_invocation: false
