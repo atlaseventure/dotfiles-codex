@@ -1,0 +1,7 @@
+interface:
+  display_name: "任务问题审计"
+  short_description: "审计当前任务中遇到的问题、绕过行为、遗留风险与修复方案"
+  default_prompt: "使用 $audit-task-issues 审计本轮任务中遇到的问题、绕过行为和遗留风险，并给出修复方案。"
+
+policy:
+  allow_implicit_invocation: false
