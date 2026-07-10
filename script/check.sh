@@ -3,9 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
-SKILL_VALIDATOR="${CODEX_HOME:-${HOME}/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"
+SKILL_VALIDATOR="${REPO_ROOT}/script/validate-skills.py"
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "${TEMP_ROOT}"' EXIT
+PYTHON_COMMAND=
 
 fail() {
   printf '检查失败：%s\n' "$1" >&2
@@ -19,48 +20,134 @@ require_command() {
 assert_link() {
   local path=$1
   local expected=$2
+  local resolved_path
+  local resolved_expected
   [[ -L "${path}" ]] || fail "预期为软链接：${path}"
-  [[ "$(readlink "${path}")" == "${expected}" ]] ||
+  resolved_path=$(resolve_path "${path}")
+  resolved_expected=$(resolve_path "${expected}")
+  [[ "${resolved_path}" == "${resolved_expected}" ]] ||
     fail "软链接目标不正确：${path}"
+}
+
+resolve_path() {
+  "${PYTHON_COMMAND}" - "$1" <<'PY'
+from pathlib import Path
+import sys
+
+print(Path(sys.argv[1]).resolve())
+PY
+}
+
+installer_home() {
+  local name=$1
+  local path=$2
+
+  if [[ "${name}" == "powershell" ]] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "${path}"
+    return
+  fi
+
+  printf '%s\n' "${path}"
+}
+
+backup_count() {
+  find "$1" -name '*.bak.*' -print | wc -l | tr -d ' '
+}
+
+test_skill_validator() {
+  local invalid_root="${TEMP_ROOT}/invalid-skills"
+  local first_skill
+
+  "${PYTHON_COMMAND}" "${SKILL_VALIDATOR}" skills
+
+  cp -R skills "${invalid_root}"
+  first_skill=$(find "${invalid_root}" -mindepth 1 -maxdepth 1 -type d -print | sort | head -n 1)
+  sed -i.bak '/^policy:/,$d' "${first_skill}/agents/openai.yaml"
+  rm "${first_skill}/agents/openai.yaml.bak"
+
+  if "${PYTHON_COMMAND}" "${SKILL_VALIDATOR}" "${invalid_root}" >/dev/null 2>&1; then
+    fail 'Skill 校验器未拒绝缺少调用策略的元数据'
+  fi
+
+  printf 'Skill 负向契约通过\n'
 }
 
 test_installer() {
   local name=$1
-  shift
+  local check_argument=$2
+  shift 2
   local test_home="${TEMP_ROOT}/${name}"
-  local external_skill="${test_home}/external-skill"
+  local external_root="${test_home}/external-skills"
+  local command_home
+  local source
+  local skill_name
+  local index=0
+  local expected_backups
   local backup_count_before
   local backup_count_after
+  local -a skill_names=()
 
-  mkdir -p "${test_home}/.codex" "${test_home}/.agents/skills/commit-worktree" "${external_skill}"
+  mkdir -p "${test_home}/.codex" "${test_home}/.agents/skills" "${external_root}"
   printf '旧指令\n' >"${test_home}/.codex/AGENTS.md"
-  printf '用户目录\n' >"${test_home}/.agents/skills/commit-worktree/marker.txt"
-  ln -s "${external_skill}" "${test_home}/.agents/skills/root-cause-review"
+
+  shopt -s nullglob
+  for source in "${REPO_ROOT}/skills"/*; do
+    [[ -d "${source}" ]] || continue
+    skill_name=$(basename "${source}")
+    skill_names+=("${skill_name}")
+
+    case $((index % 3)) in
+      0)
+        mkdir -p "${test_home}/.agents/skills/${skill_name}"
+        printf '用户目录\n' >"${test_home}/.agents/skills/${skill_name}/marker.txt"
+        ;;
+      1)
+        mkdir -p "${external_root}/${skill_name}"
+        ln -s "${external_root}/${skill_name}" "${test_home}/.agents/skills/${skill_name}"
+        ;;
+      2)
+        printf '用户文件\n' >"${test_home}/.agents/skills/${skill_name}"
+        ;;
+    esac
+    ((index += 1))
+  done
+  shopt -u nullglob
+
+  ((${#skill_names[@]} > 0)) || fail '没有可测试的 Skill'
+
   ln -s "${REPO_ROOT}/skills/removed-skill" "${test_home}/.agents/skills/removed-skill"
   ln -s "${test_home}/missing-other" "${test_home}/.agents/skills/other-skill"
+  command_home=$(installer_home "${name}" "${test_home}")
 
-  HOME="${test_home}" "$@"
+  if HOME="${command_home}" "$@" "${check_argument}" >/dev/null 2>&1; then
+    fail "${name} 检查模式未报告安装漂移"
+  fi
+  [[ "$(backup_count "${test_home}")" == "0" ]] ||
+    fail "${name} 检查模式修改了目标目录"
+
+  HOME="${command_home}" "$@"
 
   cmp -s "${REPO_ROOT}/codex/AGENTS.md" "${test_home}/.codex/AGENTS.md" ||
     fail "${name} 未正确安装 Codex AGENTS.md"
-  assert_link \
-    "${test_home}/.agents/skills/commit-worktree" \
-    "${REPO_ROOT}/skills/commit-worktree"
-  assert_link \
-    "${test_home}/.agents/skills/root-cause-review" \
-    "${REPO_ROOT}/skills/root-cause-review"
+  for skill_name in "${skill_names[@]}"; do
+    assert_link \
+      "${test_home}/.agents/skills/${skill_name}" \
+      "${REPO_ROOT}/skills/${skill_name}"
+  done
   [[ ! -e "${test_home}/.agents/skills/removed-skill" &&
     ! -L "${test_home}/.agents/skills/removed-skill" ]] ||
     fail "${name} 未清理由本仓库管理的陈旧链接"
   [[ -L "${test_home}/.agents/skills/other-skill" ]] ||
     fail "${name} 错误删除了其他来源的链接"
 
-  backup_count_before=$(find "${test_home}" -name '*.bak.*' -print | wc -l | tr -d ' ')
-  [[ "${backup_count_before}" == "3" ]] ||
+  expected_backups=$((${#skill_names[@]} + 1))
+  backup_count_before=$(backup_count "${test_home}")
+  [[ "${backup_count_before}" == "${expected_backups}" ]] ||
     fail "${name} 首次安装的备份数量不正确：${backup_count_before}"
 
-  HOME="${test_home}" "$@"
-  backup_count_after=$(find "${test_home}" -name '*.bak.*' -print | wc -l | tr -d ' ')
+  HOME="${command_home}" "$@" "${check_argument}"
+  HOME="${command_home}" "$@"
+  backup_count_after=$(backup_count "${test_home}")
   [[ "${backup_count_after}" == "${backup_count_before}" ]] ||
     fail "${name} 重复安装时创建了额外备份"
 
@@ -69,9 +156,17 @@ test_installer() {
 
 cd -- "${REPO_ROOT}"
 
-for command_name in bash python3 shellcheck pwsh rg; do
+for command_name in bash shellcheck pwsh rg; do
   require_command "${command_name}"
 done
+
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_COMMAND=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_COMMAND=python
+else
+  fail '缺少 Python 3'
+fi
 
 [[ -f "${SKILL_VALIDATOR}" ]] || fail "找不到 Skill 校验器：${SKILL_VALIDATOR}"
 
@@ -108,20 +203,9 @@ pwsh -NoProfile -Command '
     }
 '
 
-for skill_dir in skills/*; do
-  [[ -d "${skill_dir}" ]] || continue
-  python3 "${SKILL_VALIDATOR}" "${skill_dir}"
-done
-
-rg -q 'default_prompt: ".*\$commit-worktree' skills/commit-worktree/agents/openai.yaml ||
-  fail 'commit-worktree 默认提示词未显式引用 Skill'
-rg -q 'default_prompt: ".*\$root-cause-review' skills/root-cause-review/agents/openai.yaml ||
-  fail 'root-cause-review 默认提示词未显式引用 Skill'
-rg -q 'allow_implicit_invocation: false' skills/root-cause-review/agents/openai.yaml ||
-  fail 'root-cause-review 未保持显式调用策略'
-
-test_installer shell ./script/install.sh
-test_installer powershell pwsh -NoProfile -File ./script/install.ps1
+test_skill_validator
+test_installer shell --check ./script/install.sh
+test_installer powershell -Check pwsh -NoProfile -File ./script/install.ps1
 
 git diff --check
 printf '全部检查通过\n'

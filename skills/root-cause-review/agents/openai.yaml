@@ -1,6 +1,6 @@
 interface:
   display_name: "根因修复复盘"
-  short_description: "复盘修复是否真正解决根因"
+  short_description: "复盘当前修复是否解决根因，并识别不变量与结构性风险"
   default_prompt: "使用 $root-cause-review 复盘当前修复是否真正解决根因，并从结构上防止同类问题复发。"
 
 policy:

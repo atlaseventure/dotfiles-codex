@@ -1,4 +1,9 @@
-﻿Set-StrictMode -Version Latest
+﻿[CmdletBinding()]
+param(
+    [switch]$Check
+)
+
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -167,6 +172,84 @@ function Install-CodexAgentFile {
 
     Copy-Item -LiteralPath $codexAgentsSource -Destination $codexAgentsTarget
     Write-Output "已复制 $codexAgentsTarget <- $codexAgentsSource"
+}
+
+function Test-Installation {
+    $consistent = $true
+
+    foreach ($source in Get-ChildItem -LiteralPath $sourceDir -Directory) {
+        $destination = Join-Path $targetDir $source.Name
+        $existing = Get-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
+        $current = $false
+
+        if ($null -ne $existing -and (Test-IsLinkLike -Item $existing)) {
+            $currentTarget = Get-NormalizedLinkTarget -Item $existing -LinkPath $destination
+            $current = $null -ne $currentTarget -and
+                $currentTarget.Equals($source.FullName, $pathComparison)
+        }
+
+        if ($current) {
+            Write-Information "Skill 状态一致：$destination" -InformationAction Continue
+        }
+        else {
+            Write-Warning "Skill 状态不一致：$destination 应链接到 $($source.FullName)"
+            $consistent = $false
+        }
+    }
+
+    if (Test-Path -LiteralPath $targetDir -PathType Container) {
+        $sourcePrefix = $sourceDir.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ) + [System.IO.Path]::DirectorySeparatorChar
+
+        foreach ($item in Get-ChildItem -LiteralPath $targetDir -Force) {
+            if (-not (Test-IsLinkLike -Item $item)) {
+                continue
+            }
+
+            $linkTarget = Get-NormalizedLinkTarget -Item $item -LinkPath $item.FullName
+            if (
+                $null -ne $linkTarget -and
+                $linkTarget.StartsWith($sourcePrefix, $pathComparison) -and
+                -not (Test-Path -LiteralPath $linkTarget)
+            ) {
+                Write-Warning "存在陈旧 Skill 链接：$($item.FullName) -> $linkTarget"
+                $consistent = $false
+            }
+        }
+    }
+
+    $agentsExisting = Get-Item -LiteralPath $codexAgentsTarget -Force -ErrorAction SilentlyContinue
+    $agentsCurrent = $null -ne $agentsExisting -and
+        -not (Test-IsLinkLike -Item $agentsExisting) -and
+        -not $agentsExisting.PSIsContainer -and
+        (Get-FileHash -LiteralPath $codexAgentsSource -Algorithm SHA256).Hash -eq
+        (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
+
+    if ($agentsCurrent) {
+        Write-Information "Codex AGENTS.md 状态一致：$codexAgentsTarget" -InformationAction Continue
+    }
+    else {
+        Write-Warning "Codex AGENTS.md 状态不一致：$codexAgentsTarget"
+        $consistent = $false
+    }
+
+    if ($consistent) {
+        Write-Information '安装状态一致' -InformationAction Continue
+    }
+    else {
+        Write-Warning "安装状态不一致，请运行 $PSCommandPath 完成收敛"
+    }
+
+    return $consistent
+}
+
+if ($Check) {
+    if (Test-Installation) {
+        exit 0
+    }
+    exit 1
 }
 
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null

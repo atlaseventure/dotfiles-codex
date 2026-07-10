@@ -9,6 +9,21 @@ TARGET_DIR="${HOME:?HOME 未设置}/.agents/skills"
 CODEX_TARGET_DIR="${HOME}/.codex"
 CODEX_AGENTS_TARGET="${CODEX_TARGET_DIR}/AGENTS.md"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+MODE=install
+
+if (($# > 1)); then
+  printf '用法：%s [--check]\n' "$0" >&2
+  exit 2
+fi
+
+if (($# == 1)); then
+  if [[ "$1" != "--check" ]]; then
+    printf '未知参数：%s\n' "$1" >&2
+    printf '用法：%s [--check]\n' "$0" >&2
+    exit 2
+  fi
+  MODE=check
+fi
 
 if [[ ! -d "${SOURCE_DIR}" ]]; then
   printf 'Skill 源目录不存在：%s\n' "${SOURCE_DIR}" >&2
@@ -90,6 +105,87 @@ install_codex_agents() {
   cp "${CODEX_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"
   printf '已复制 %s <- %s\n' "${CODEX_AGENTS_TARGET}" "${CODEX_AGENTS_SOURCE}"
 }
+
+check_skill() {
+  local source=$1
+  local destination=$2
+
+  if [[ -L "${destination}" && "$(readlink "${destination}")" == "${source}" ]]; then
+    printf 'Skill 状态一致：%s\n' "${destination}"
+    return 0
+  fi
+
+  printf 'Skill 状态不一致：%s 应链接到 %s\n' "${destination}" "${source}" >&2
+  return 1
+}
+
+check_stale_managed_links() {
+  local destination
+  local link_target
+  local status=0
+
+  [[ -d "${TARGET_DIR}" ]] || return 0
+
+  shopt -s nullglob
+  for destination in "${TARGET_DIR}"/*; do
+    [[ -L "${destination}" ]] || continue
+    link_target=$(readlink "${destination}")
+    if [[ "${link_target}" == "${SOURCE_DIR}/"* && ! -e "${link_target}" ]]; then
+      printf '存在陈旧 Skill 链接：%s -> %s\n' "${destination}" "${link_target}" >&2
+      status=1
+    fi
+  done
+  shopt -u nullglob
+
+  return "${status}"
+}
+
+check_codex_agents() {
+  if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
+    cmp -s "${CODEX_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
+    printf 'Codex AGENTS.md 状态一致：%s\n' "${CODEX_AGENTS_TARGET}"
+    return 0
+  fi
+
+  printf 'Codex AGENTS.md 状态不一致：%s\n' "${CODEX_AGENTS_TARGET}" >&2
+  return 1
+}
+
+check_installation() {
+  local source
+  local status=0
+
+  shopt -s nullglob
+  for source in "${SOURCE_DIR}"/*; do
+    [[ -d "${source}" ]] || continue
+    if ! check_skill "${source}" "${TARGET_DIR}/$(basename "${source}")"; then
+      status=1
+    fi
+  done
+  shopt -u nullglob
+
+  if ! check_stale_managed_links; then
+    status=1
+  fi
+  if ! check_codex_agents; then
+    status=1
+  fi
+
+  if ((status == 0)); then
+    printf '安装状态一致\n'
+    return 0
+  fi
+
+  printf '安装状态不一致，请运行 %s 完成收敛\n' "$0" >&2
+  return 1
+}
+
+if [[ "${MODE}" == "check" ]]; then
+  if check_installation; then
+    exit 0
+  fi
+  exit 1
+fi
 
 mkdir -p "${TARGET_DIR}" "${CODEX_TARGET_DIR}"
 

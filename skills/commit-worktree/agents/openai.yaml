@@ -1,4 +1,7 @@
 interface:
   display_name: "提交工作区"
-  short_description: "验证并提交相关改动，生成准确的规范化提交信息"
+  short_description: "验证相关改动并生成准确、规范、聚焦且可追溯的本地提交"
   default_prompt: "使用 $commit-worktree 检查、验证并提交当前任务相关修改。"
+
+policy:
+  allow_implicit_invocation: true

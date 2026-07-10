@@ -1,0 +1,7 @@
+interface:
+  display_name: "沉淀项目知识"
+  short_description: "将稳定、可复用的项目认知写回职责明确且正确的权威文档"
+  default_prompt: "使用 $capture-project-knowledge 将本次任务中可复用的项目认知沉淀到正确的权威文档。"
+
+policy:
+  allow_implicit_invocation: false
