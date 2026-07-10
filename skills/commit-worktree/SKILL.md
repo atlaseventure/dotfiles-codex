@@ -1,66 +1,54 @@
 ---
 name: commit-worktree
-description: "Use when the user asks to commit the current workspace or worktree, submit local changes, or generate and apply a git commit for staged or unstaged edits. Follow the format type(scope): message, keep type and scope in English, and prefer Chinese for the message unless the user specifies otherwise."
+description: "提交当前工作区或 worktree 中的相关修改并创建本地 Git commit。用户要求提交改动、提交当前工作区、commit changes 或生成提交时使用。提交信息遵循 type(scope): message，type 和 scope 使用英文，message 默认使用中文；除非用户明确要求，不执行 push、amend 或历史改写。"
 ---
 
-# Commit Worktree
-
-## Overview
-
-Use this skill for requests such as "提交当前工作区内容", "帮我提交改动", "commit current changes", or any instruction to create a git commit from the current local worktree.
-
-The default convention is `type(scope): message`:
-
-- `type` must be English.
-- `scope` must be English.
-- `message` should prefer Chinese unless the user gives another requirement.
+# 提交工作区
 
 ## Workflow
 
-1. Inspect the current worktree with non-interactive git commands.
-2. Identify what changed before writing the commit message. Prefer `git status --short`, `git diff --stat`, `git diff --cached --stat`, and targeted file reads when needed.
-3. Identify the concrete subsystem from the diff intent and changed paths before choosing `scope`. Then read recent commit history for those paths, such as `git log --oneline -n 10 -- <path>` or `git log --stat -n 10 -- <path>`, to calibrate naming without overriding a clearer subsystem.
-4. If the request implies committing the current workspace, stage the relevant tracked and untracked files needed for that commit.
-5. Compose a commit message in `type(scope): message` format.
-6. Run a normal `git commit -m` command. Do not amend, force-push, or rewrite history unless the user explicitly asks.
-7. Report the commit message, commit hash, current branch, and whether the worktree is clean after the commit.
+1. 读取当前路径适用的 `AGENTS.md`、仓库说明和验证入口，确认提交范围与质量门。
+2. 使用非交互 Git 命令检查工作区。优先运行 `git status --short`、`git diff --stat`、`git diff --cached --stat`，并按需读取具体差异。
+3. 区分当前任务修改、用户已有修改和无关修改。默认只提交当前任务相关内容；只有用户明确要求提交整个工作区时才纳入全部修改。
+4. 从仓库约定中发现并运行与改动相关的测试、lint、构建或检查命令。验证失败时保留显式失败，不创建提交，除非用户明确要求带失败状态提交。
+5. 根据差异意图和路径确定具体子系统，再通过 `git log --oneline -n 10 -- <path>` 或等价命令校准近期 scope 命名。
+6. 暂存提交所需的已跟踪和未跟踪文件，不改动无关文件的暂存状态。
+7. 在提交前运行 `git diff --cached --check`、`git diff --cached --stat`，并复核完整或针对性的暂存差异。
+8. 按 `type(scope): message` 生成提交信息，执行普通的 `git commit -m`。
+9. 报告验证命令及结果、提交信息、提交哈希、当前分支和提交后的工作区状态。
 
-## Commit Message Rules
+## 提交信息
 
-Choose `type` from the change intent. Common defaults:
+根据改动意图选择 `type`：
 
-- `feat`: new user-facing feature
-- `fix`: bug fix or behavioral correction
-- `docs`: documentation-only change
-- `refactor`: internal restructuring without intended behavior change
-- `test`: tests added or updated
-- `build`: build system, dependencies, or packaging changes
-- `ci`: CI workflow changes
-- `chore`: routine maintenance that does not fit the above
+- `feat`：新增用户可见能力
+- `fix`：修复缺陷或纠正行为
+- `docs`：仅修改文档
+- `refactor`：不改变预期行为的内部重构
+- `test`：新增或更新测试
+- `build`：构建、依赖或打包修改
+- `ci`：持续集成修改
+- `chore`：不属于以上类型的日常维护
 
-Choose a short English `scope` that reflects the concrete affected area, such as `flash`, `boot`, `rootfs`, `runtime`, `toolchain`, `board`, `serial`, `docs`, `login`, `network`, or `ui`. Use broad scopes such as `repo` only when no narrower subsystem can be defended from the diff.
+选择简短英文 `scope`，表达差异对应的具体行为或子系统。按以下顺序判断：
 
-Pick `scope` in this order:
+1. 优先使用差异所表达的用户行为或运行域，而不是宽泛目录名。
+2. 近期历史中的 scope 只有在具体且语义一致时才能复用。
+3. 多个文件共同支持同一行为时，使用该行为作为 scope。
+4. 多个子系统确实同时变化时，使用主要交付行为；只有无法证明更具体范围时才使用 `repo`。
+5. 不因历史中重复出现 `repo`、`build`、`core`、`common`、`misc` 或 `project` 而继续沿用宽泛 scope。
 
-1. Identify the concrete subsystem from the diff intent and changed paths. Prefer the user-visible or operational domain over the broad directory name when the change has a clear behavior, such as `flash` for USB flashing and partition layout changes.
-2. Reuse a recent relevant scope only when it is both specific and semantically correct for the current change.
-3. Treat generic scopes such as `repo`, `build`, `core`, `common`, `misc`, and `project` as weak signals. Do not reuse them when the diff supports a clearer subsystem.
-4. If multiple files are touched but all changes support one behavior, choose the behavior scope rather than the broad repository or tool scope.
-5. If several specific subsystems are genuinely changed, choose the primary behavior being delivered. Use `repo` only when no narrower scope can be defended.
-
-Write `message` in concise Chinese by default. It should summarize the main change, not the mechanical action. Prefer forms like:
+`message` 默认使用简洁中文，描述主要结果而不是机械动作。例如：
 
 - `docs(build): 新增本地构建说明文档`
 - `fix(login): 修复短信验证码重复发送问题`
 - `refactor(network): 整理请求错误处理逻辑`
 - `fix(flash): 修复 A/B 分区 USB 烧录链`
 
-## Guardrails
+## 边界
 
-- If there are no changes to commit, say so instead of creating an empty commit.
-- If the worktree contains unrelated changes and the user asked to commit "current workspace content", include them unless there is clear evidence they should be separated.
-- Do not choose `scope` from filenames alone when the diff behavior points to a clearer subsystem.
-- Do not let repeated generic history create scope lock-in. A repeated `repo` or `build` scope is not a reason to avoid a more precise current scope.
-- If recent history shows inconsistent specific scopes for what appears to be the same area, prefer the most recent specific scope that matches the current diff behavior.
-- Keep the message stable and plain; avoid mixing Chinese and English unless required by established project conventions.
-- Use non-interactive git commands only.
+- 没有可提交修改时明确说明，不创建空提交。
+- 无关修改已经暂存时，不静默纳入，也不擅自取消其暂存状态；优先使用安全的路径限定提交，无法隔离时停止并说明边界。
+- 不从文件名直接推导 scope，必须结合差异行为。
+- 仅使用非交互 Git 命令。
+- 未经明确要求，不执行 push、amend、force-push、rebase 或其他历史改写。
