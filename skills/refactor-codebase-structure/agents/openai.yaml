@@ -1,0 +1,7 @@
+interface:
+  display_name: "结构化代码重构"
+  short_description: "系统化拆分大文件、抽取复用组件并整理目录层次与文件命名"
+  default_prompt: "使用 $refactor-codebase-structure 检查并重构当前代码库的文件职责、复用边界和目录分层。"
+
+policy:
+  allow_implicit_invocation: false

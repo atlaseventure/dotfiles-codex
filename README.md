@@ -78,8 +78,11 @@ Windows PowerShell 执行：
 | Skill | 调用方式 | 用途 |
 | --- | --- | --- |
 | `commit-worktree` | 可隐式调用 | 验证并提交当前任务相关修改 |
+| `audit-task-issues` | 仅显式调用 | 审计当前任务中的问题、绕过行为、遗留风险与修复方案 |
+| `grilling` | 仅显式调用 | 逐项压力测试方案并厘清关键决策与依赖关系 |
 | `root-cause-review` | 仅显式调用 | 复盘修复是否建立了正确不变量并解决根因 |
 | `capture-project-knowledge` | 仅显式调用 | 将经过验证的稳定认知写回职责正确的项目文档 |
+| `refactor-codebase-structure` | 仅显式调用 | 系统化拆分大文件、抽取复用组件并整理目录结构 |
 
 ## 验证
 
