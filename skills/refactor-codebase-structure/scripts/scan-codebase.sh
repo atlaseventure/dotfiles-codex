@@ -24,7 +24,8 @@ globs=(
   -g '*.java' -g '*.js' -g '*.jsx' -g '*.kt' -g '*.kts' -g '*.php'
   -g '*.py' -g '*.rb' -g '*.rs' -g '*.scala' -g '*.sh' -g '*.swift'
   -g '*.ts' -g '*.tsx' -g '*.vue'
-  -g '!vendor/**' -g '!node_modules/**' -g '!dist/**' -g '!build/**'
+  -g '!**/vendor/**' -g '!**/Vendor/**' -g '!**/Pods/**'
+  -g '!**/node_modules/**' -g '!**/dist/**' -g '!**/build/**'
 )
 
 files=()
