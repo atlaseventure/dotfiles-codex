@@ -54,6 +54,32 @@ backup_count() {
   find "$1" -name '*.bak.*' -print | wc -l | tr -d ' '
 }
 
+skill_supports_platform() {
+  local source=$1
+  local platform=$2
+  local supported
+
+  supported=$(awk -v platform="${platform}" '
+    $0 == "platform:" { in_platform=1; next }
+    in_platform && $0 !~ /^[[:space:]]/ { exit }
+    in_platform && $1 == platform ":" { print $2; exit }
+  ' "${source}/agents/openai.yaml")
+
+  [[ "${supported}" == "true" ]]
+}
+
+run_installer() {
+  local name=$1
+  local command_home=$2
+  shift 2
+
+  if [[ "${name}" == "powershell" ]]; then
+    OS=Windows_NT HOME="${command_home}" "$@"
+  else
+    HOME="${command_home}" "$@"
+  fi
+}
+
 test_skill_validator() {
   local invalid_root="${TEMP_ROOT}/invalid-skills"
   local first_skill
@@ -94,6 +120,12 @@ test_installer() {
   for source in "${REPO_ROOT}/skills"/*; do
     [[ -d "${source}" ]] || continue
     skill_name=$(basename "${source}")
+
+    if [[ "${name}" == "powershell" ]] &&
+      ! skill_supports_platform "${source}" windows; then
+      continue
+    fi
+
     skill_names+=("${skill_name}")
 
     case $((index % 3)) in
@@ -119,13 +151,13 @@ test_installer() {
   ln -s "${test_home}/missing-other" "${test_home}/.agents/skills/other-skill"
   command_home=$(installer_home "${name}" "${test_home}")
 
-  if HOME="${command_home}" "$@" "${check_argument}" >/dev/null 2>&1; then
+  if run_installer "${name}" "${command_home}" "$@" "${check_argument}" >/dev/null 2>&1; then
     fail "${name} 检查模式未报告安装漂移"
   fi
   [[ "$(backup_count "${test_home}")" == "0" ]] ||
     fail "${name} 检查模式修改了目标目录"
 
-  HOME="${command_home}" "$@"
+  run_installer "${name}" "${command_home}" "$@"
 
   cmp -s "${REPO_ROOT}/codex/AGENTS.md" "${test_home}/.codex/AGENTS.md" ||
     fail "${name} 未正确安装 Codex AGENTS.md"
@@ -134,6 +166,17 @@ test_installer() {
       "${test_home}/.agents/skills/${skill_name}" \
       "${REPO_ROOT}/skills/${skill_name}"
   done
+  if [[ "${name}" == "powershell" ]]; then
+    for source in "${REPO_ROOT}/skills"/*; do
+      [[ -d "${source}" ]] || continue
+      if ! skill_supports_platform "${source}" windows; then
+        skill_name=$(basename "${source}")
+        [[ ! -e "${test_home}/.agents/skills/${skill_name}" &&
+          ! -L "${test_home}/.agents/skills/${skill_name}" ]] ||
+          fail "Windows 安装器错误安装了不支持 Windows 的 Skill：${skill_name}"
+      fi
+    done
+  fi
   [[ ! -e "${test_home}/.agents/skills/removed-skill" &&
     ! -L "${test_home}/.agents/skills/removed-skill" ]] ||
     fail "${name} 未清理由本仓库管理的陈旧链接"
@@ -145,8 +188,8 @@ test_installer() {
   [[ "${backup_count_before}" == "${expected_backups}" ]] ||
     fail "${name} 首次安装的备份数量不正确：${backup_count_before}"
 
-  HOME="${command_home}" "$@" "${check_argument}"
-  HOME="${command_home}" "$@"
+  run_installer "${name}" "${command_home}" "$@" "${check_argument}"
+  run_installer "${name}" "${command_home}" "$@"
   backup_count_after=$(backup_count "${test_home}")
   [[ "${backup_count_after}" == "${backup_count_before}" ]] ||
     fail "${name} 重复安装时创建了额外备份"

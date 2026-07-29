@@ -29,6 +29,7 @@ $codexTargetDir = Join-Path $HOME '.codex'
 $codexAgentsTarget = Join-Path $codexTargetDir 'AGENTS.md'
 $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
 $isWindowsPlatform = $env:OS -eq 'Windows_NT'
+$platform = if ($isWindowsPlatform) { 'windows' } else { 'unix' }
 $pathComparison = if ($isWindowsPlatform) {
     [System.StringComparison]::OrdinalIgnoreCase
 }
@@ -174,10 +175,46 @@ function Install-CodexAgentFile {
     Write-Output "已复制 $codexAgentsTarget <- $codexAgentsSource"
 }
 
+function Test-SkillSupportsPlatform {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.DirectoryInfo]$Source,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Platform
+    )
+
+    $metadataPath = Join-Path $Source.FullName 'agents\openai.yaml'
+    $pattern = '^\s+' + [regex]::Escape($Platform) + ':\s+(true|false)\s*$'
+    $inPlatform = $false
+
+    foreach ($line in Get-Content -LiteralPath $metadataPath) {
+        if ($line -eq 'platform:') {
+            $inPlatform = $true
+            continue
+        }
+        if ($inPlatform -and $line -notmatch '^\s') {
+            break
+        }
+        if ($inPlatform -and $line -match $pattern) {
+            return $Matches[1] -eq 'true'
+        }
+    }
+
+    throw "Skill 平台元数据缺失：$metadataPath"
+}
+
+function Get-InstallableSkill {
+    return @(
+        Get-ChildItem -LiteralPath $sourceDir -Directory |
+            Where-Object { Test-SkillSupportsPlatform -Source $_ -Platform $platform }
+    )
+}
+
 function Test-Installation {
     $consistent = $true
 
-    foreach ($source in Get-ChildItem -LiteralPath $sourceDir -Directory) {
+    foreach ($source in Get-InstallableSkill) {
         $destination = Join-Path $targetDir $source.Name
         $existing = Get-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
         $current = $false
@@ -255,7 +292,7 @@ if ($Check) {
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 New-Item -ItemType Directory -Path $codexTargetDir -Force | Out-Null
 
-foreach ($source in Get-ChildItem -LiteralPath $sourceDir -Directory) {
+foreach ($source in Get-InstallableSkill) {
     Install-Skill -Source $source -Destination (Join-Path $targetDir $source.Name)
 }
 

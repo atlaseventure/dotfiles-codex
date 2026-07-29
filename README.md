@@ -66,6 +66,8 @@ Windows PowerShell 执行：
 - 同名真实文件、目录或其他来源的软链接会先备份为唯一的 `.bak.<timestamp>` 路径。
 - 仓库中已删除 Skill 所遗留的受管软链接会被清理。
 - 其他来源的 Skill 和软链接不会被删除。
+- 每个 Skill 在 `agents/openai.yaml` 中声明 `platform` 元数据；安装器按当前系统动态选择可安装的 Skill。
+- `ida-mcp-workspace` 的 `platform.windows` 为 `false`，因此仅在 Unix 安装入口中安装。
 
 ## Skill 适用范围
 

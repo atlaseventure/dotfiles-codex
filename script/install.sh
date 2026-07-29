@@ -10,6 +10,7 @@ CODEX_TARGET_DIR="${HOME}/.codex"
 CODEX_AGENTS_TARGET="${CODEX_TARGET_DIR}/AGENTS.md"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
 MODE=install
+PLATFORM=unix
 
 if (($# > 1)); then
   printf '用法：%s [--check]\n' "$0" >&2
@@ -74,6 +75,33 @@ install_skill() {
 
   ln -s "${source}" "${destination}"
   printf '已链接 %s -> %s\n' "${destination}" "${source}"
+}
+
+skill_supports_platform() {
+  local source=$1
+  local platform=$2
+  local metadata_path="${source}/agents/openai.yaml"
+  local supported
+
+  supported=$(awk -v platform="${platform}" '
+    $0 == "platform:" { in_platform=1; next }
+    in_platform && $0 !~ /^[[:space:]]/ { exit }
+    in_platform && $1 == platform ":" { print $2; exit }
+  ' "${metadata_path}")
+
+  if [[ -z "${supported}" ]]; then
+    printf 'Skill 平台元数据缺失：%s\n' "${metadata_path}" >&2
+    exit 1
+  fi
+
+  case "${supported}" in
+    true) return 0 ;;
+    false) return 1 ;;
+    *)
+      printf 'Skill 平台元数据无效：%s\n' "${metadata_path}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 remove_stale_managed_links() {
@@ -158,6 +186,9 @@ check_installation() {
   shopt -s nullglob
   for source in "${SOURCE_DIR}"/*; do
     [[ -d "${source}" ]] || continue
+    if ! skill_supports_platform "${source}" "${PLATFORM}"; then
+      continue
+    fi
     if ! check_skill "${source}" "${TARGET_DIR}/$(basename "${source}")"; then
       status=1
     fi
@@ -192,6 +223,9 @@ mkdir -p "${TARGET_DIR}" "${CODEX_TARGET_DIR}"
 shopt -s nullglob
 for source in "${SOURCE_DIR}"/*; do
   [[ -d "${source}" ]] || continue
+  if ! skill_supports_platform "${source}" "${PLATFORM}"; then
+    continue
+  fi
   install_skill "${source}" "${TARGET_DIR}/$(basename "${source}")"
 done
 shopt -u nullglob

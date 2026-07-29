@@ -141,9 +141,9 @@ def validate_skill(skill_dir: Path) -> None:
         raise ValidationError(f"{skill_path}: Skill 正文不能为空")
 
     metadata = parse_openai_yaml(metadata_path)
-    if set(metadata) != {"interface", "policy"}:
+    if set(metadata) != {"interface", "policy", "platform"}:
         raise ValidationError(
-            f"{metadata_path}: 只允许且必须包含 interface 与 policy 区段"
+            f"{metadata_path}: 只允许且必须包含 interface、policy 与 platform 区段"
         )
 
     interface = metadata["interface"]
@@ -187,6 +187,17 @@ def validate_skill(skill_dir: Path) -> None:
         raise ValidationError(
             f"{skill_path}: 禁止隐式调用时 description 必须说明显式触发条件"
         )
+
+    platform = metadata["platform"]
+    if set(platform) != {"unix", "windows"}:
+        raise ValidationError(
+            f"{metadata_path}: platform 字段必须为 unix、windows"
+        )
+    for value in platform.values():
+        if not isinstance(value, bool):
+            raise ValidationError(
+                f"{metadata_path}: platform 值必须是布尔值"
+            )
 
 
 def main() -> int:

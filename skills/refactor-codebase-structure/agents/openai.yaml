@@ -5,3 +5,7 @@ interface:
 
 policy:
   allow_implicit_invocation: false
+
+platform:
+  unix: true
+  windows: true
