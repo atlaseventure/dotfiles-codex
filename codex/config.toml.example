@@ -8,9 +8,12 @@ personality = "pragmatic"
 sandbox = "unelevated"
 
 [model_providers.custom]
-name = "custom"
+name = "OpenAI"
 wire_api = "responses"
 requires_openai_auth = true
 # supports_websockets = true
 base_url = "https://api.openai.com/v1"
 
+[mcp_servers.ida-windows]
+command = "/windows/path/to/uv.exe"
+args = ["run", "--directory", '\path\to\ida-pro-mcp', "--locked", "idalib-mcp", "--stdio"]

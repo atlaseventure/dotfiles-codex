@@ -1,6 +1,6 @@
 ---
 name: refactor-codebase-structure
-description: 系统化检查并重构代码库结构：识别职责混乱的大文件，依据 SOLID 拆分职责，发现并抽取高价值复用组件，整理过度扁平或命名含糊的目录与文件，并在不改变外部行为和契约的前提下完成验证。仅在用户显式调用 refactor-codebase-structure、$refactor-codebase-structure 或明确要求使用此 Skill 时使用；不因普通代码审查或重构请求自动触发。
+description: 系统化检查并重构整个代码库或用户指定的目录：识别职责混乱的大文件，依据 SOLID 拆分职责，发现并抽取高价值复用组件，整理过度扁平或命名含糊的目录与文件，支持显式排除目录，并在不改变外部行为和契约的前提下完成验证。仅在用户显式调用 refactor-codebase-structure、$refactor-codebase-structure 或明确要求使用此 Skill 时使用；不因普通代码审查或重构请求自动触发。
 ---
 
 # 结构化重构代码库
@@ -14,7 +14,8 @@ description: 系统化检查并重构代码库结构：识别职责混乱的大�
 1. 读取仓库及子目录适用的指令、架构文档、生成规则和验证入口。
 2. 检查工作区、暂存区和近期历史，区分当前任务修改、用户已有修改及生成产物。
 3. 明确对外契约：API、CLI、数据库、序列化格式、公开类型、事件、日志和文件路径。
-4. 未经用户要求，不提交、不推送、不顺手修改无关行为。
+4. 明确工作范围：未指定目录时覆盖整个仓库；指定目录时只扫描、分析和修改这些目录；排除目录不得扫描、修改或计入结论。范围依赖仓库外或排除目录内的改动时，报告阻塞并请求用户扩展范围。
+5. 未经用户要求，不提交、不推送、不顺手修改无关行为。
 
 ### 2. 建立基线
 
@@ -30,7 +31,16 @@ description: 系统化检查并重构代码库结构：识别职责混乱的大�
 bash <skill-dir>/scripts/scan-codebase.sh <repo-root> 40
 ```
 
-脚本默认排除 `Pods`、`vendor`、`Vendor`、`node_modules`、`dist` 和 `build` 目录，包括嵌套在子项目中的同名目录。
+只扫描指定目录并排除其中的子目录时执行：
+
+```bash
+bash <skill-dir>/scripts/scan-codebase.sh <repo-root> 40 \
+  --include src \
+  --include tools \
+  --exclude src/generated
+```
+
+`--include` 和 `--exclude` 均可重复，参数必须是仓库根目录内已存在的相对目录。未提供 `--include` 时扫描整个仓库；脚本始终默认排除 `Pods`、`vendor`、`Vendor`、`node_modules`、`dist` 和 `build` 目录，包括嵌套在子项目中的同名目录。
 
 结合代码搜索、调用关系和测试判断候选项。至少检查：
 

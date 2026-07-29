@@ -2,3 +2,4 @@
 *.bak.*
 *.tmp
 .ace-tool/
+__pycache__

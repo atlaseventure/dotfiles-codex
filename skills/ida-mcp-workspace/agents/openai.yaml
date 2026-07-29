@@ -1,0 +1,7 @@
+interface:
+  display_name: "IDA MCP 工作区"
+  short_description: "按 SHA-256 安全准备、校验和复用 IDA MCP 分析对象"
+  default_prompt: "使用 $ida-mcp-workspace 为 IDA MCP 分析准备这个二进制文件。"
+
+policy:
+  allow_implicit_invocation: true
