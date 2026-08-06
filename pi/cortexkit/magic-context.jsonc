@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  "historian": {
+    "model": "atlas/gpt-5.6-luna",
+    "thinking_level": "max"
+  },
+  "dreamer": {
+    "model": "atlas/gpt-5.6-luna",
+    "thinking_level": "max"
+  },
+  "sidekick": {
+    "model": "atlas/gpt-5.6-luna",
+    "thinking_level": "max"
+  },
+  "embedding": {
+    "provider": "local",
+    "model": "Xenova/all-MiniLM-L6-v2"
+  }
+}
