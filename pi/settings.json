@@ -1,0 +1,11 @@
+{
+  "lastChangelogVersion": "0.83.0",
+  "theme": "dark",
+  "defaultProjectTrust": "always",
+  "defaultProvider": "atlas",
+  "defaultModel": "gpt-5.6-luna",
+  "defaultThinkingLevel": "max",
+  "packages": [
+    "npm:@cortexkit/pi-magic-context"
+  ]
+}
