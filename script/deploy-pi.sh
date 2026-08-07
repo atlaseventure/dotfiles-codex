@@ -7,6 +7,7 @@ SOURCE_DIR="${REPO_ROOT}/pi"
 GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
 HOME_DIR="${HOME:?HOME 未设置}"
 PI_CONFIG_DIR="${PI_CODING_AGENT_DIR:-${HOME_DIR}/.pi/agent}"
+PI_SUBAGENT_CONFIG_TARGET="${PI_CONFIG_DIR}/extensions/subagent/config.json"
 CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME_DIR}/.config}"
 MAGIC_CONTEXT_TARGET="${CONFIG_HOME}/cortexkit/magic-context.jsonc"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
@@ -52,14 +53,15 @@ SOURCE_SETTINGS="${SOURCE_DIR}/settings.json"
 SOURCE_MODELS="${SOURCE_DIR}/models.json"
 SOURCE_MCP="${SOURCE_DIR}/mcp.json"
 SOURCE_MAGIC_CONTEXT="${SOURCE_DIR}/cortexkit/magic-context.jsonc"
+SOURCE_SUBAGENT_CONFIG="${SOURCE_DIR}/extensions/subagent/config.json"
 
-for source in "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_MAGIC_CONTEXT}"; do
+for source in "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_MAGIC_CONTEXT}" "${SOURCE_SUBAGENT_CONFIG}"; do
   [[ -f "${source}" ]] || fail "仓库配置文件不存在：${source}"
 done
 [[ -f "${GLOBAL_AGENTS_SOURCE}" ]] || fail "共享全局提示词源文件不存在：${GLOBAL_AGENTS_SOURCE}"
 
 # 仓库源文件禁止出现会随主机变化或包含凭据的字段。
-node - "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" <<'NODE'
+node - "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_SUBAGENT_CONFIG}" <<'NODE'
 const fs = require("node:fs");
 
 const paths = process.argv.slice(2);
@@ -247,12 +249,14 @@ STAGED_SETTINGS="${STAGED_DIR}/settings.json"
 STAGED_MODELS="${STAGED_DIR}/models.json"
 STAGED_MCP="${STAGED_DIR}/mcp.json"
 STAGED_MAGIC_CONTEXT="${STAGED_DIR}/magic-context.jsonc"
+STAGED_SUBAGENT_CONFIG="${STAGED_DIR}/subagent-config.json"
 STAGED_GLOBAL_AGENTS="${STAGED_DIR}/AGENTS.md"
 
 stage_json settings "${SOURCE_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" "${STAGED_SETTINGS}"
 stage_json models "${SOURCE_MODELS}" "${PI_CONFIG_DIR}/models.json" "${STAGED_MODELS}"
 stage_json mcp "${SOURCE_MCP}" "${PI_CONFIG_DIR}/mcp.json" "${STAGED_MCP}"
 cp -- "${SOURCE_MAGIC_CONTEXT}" "${STAGED_MAGIC_CONTEXT}"
+cp -- "${SOURCE_SUBAGENT_CONFIG}" "${STAGED_SUBAGENT_CONFIG}"
 cp -- "${GLOBAL_AGENTS_SOURCE}" "${STAGED_GLOBAL_AGENTS}"
 
 check_file() {
@@ -325,6 +329,7 @@ if [[ "${MODE}" == "check" ]]; then
   check_file "${STAGED_MODELS}" "${PI_CONFIG_DIR}/models.json" 'Pi models.json' 600 || status=1
   check_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600 || status=1
   check_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes || status=1
+  check_file "${STAGED_SUBAGENT_CONFIG}" "${PI_SUBAGENT_CONFIG_TARGET}" 'Pi 子代理扩展配置' 644 || status=1
   check_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes || status=1
   if ((status == 0)); then
     printf 'Pi 配置状态一致\n'
@@ -339,4 +344,5 @@ install_file "${STAGED_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" 'Pi settings.
 install_file "${STAGED_MODELS}" "${PI_CONFIG_DIR}/models.json" 'Pi models.json' 600
 install_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600
 install_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes
+install_file "${STAGED_SUBAGENT_CONFIG}" "${PI_SUBAGENT_CONFIG_TARGET}" 'Pi 子代理扩展配置' 644
 install_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes

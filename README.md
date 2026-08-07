@@ -6,7 +6,8 @@
 
 - `agents/AGENTS.md`：Codex 与 Pi 共用的全局提示词
 - `codex/config.toml.example`：当前有效的全局配置模板
-- `pi/`：Pi 全局设置、模型、MCP 和 Magic Context 配置
+- `codex/agents/default.toml`：Codex 通用探索型子代理配置
+- `pi/`：Pi 全局设置、模型、MCP、子代理和 Magic Context 配置
 - `skills/`：使用 Git 管理的个人全局 Skills
 - `script/install.sh`：macOS、Linux 和 WSL 安装入口
 - `script/deploy-pi.sh`：将仓库中的非敏感 Pi 配置部署到 Unix 主机
@@ -35,11 +36,13 @@
 | `agents/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 复制到 Codex 全局提示词位置 |
 | `agents/AGENTS.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md` | 复制到 Pi 全局提示词位置 |
 | `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 保留主机值，不同步 |
+| `pi/extensions/subagent/config.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/subagent/config.json` | Pi 子代理并发与嵌套深度；整文件由仓库管理 |
 | `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头保留主机值 |
 | `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌保留主机值 |
 | `pi/cortexkit/magic-context.jsonc` | `${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc` | Magic Context 用户配置 |
+| `codex/agents/default.toml` | `$HOME/.codex/agents/default.toml` | Codex 默认探索型子代理；由安装器备份后覆盖 |
 
-`codex/config.toml.example` 不自动安装。配置可能包含用户环境和认证相关差异，应按需合并到 `$HOME/.codex/config.toml`。
+`codex/config.toml.example` 不自动安装。配置可能包含用户环境和认证相关差异，应按需合并到 `$HOME/.codex/config.toml`。`codex/agents/default.toml` 由安装器部署。
 
 ## 安装方式
 

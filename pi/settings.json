@@ -4,6 +4,10 @@
   "defaultProvider": "atlas",
   "defaultModel": "gpt-5.6-luna",
   "defaultThinkingLevel": "max",
+  "subagents": {
+    "defaultModel": "gpt-5.6-luna",
+    "defaultThinking": "max"
+  },
   "packages": [
     "npm:@cortexkit/pi-magic-context",
     "npm:pi-web-access",

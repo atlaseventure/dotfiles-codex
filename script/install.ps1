@@ -9,6 +9,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'skills'
 $globalAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
+$codexDefaultAgentSource = Join-Path $repoRoot 'codex\agents\default.toml'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
     throw 'HOME 未设置'
@@ -22,11 +23,16 @@ if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
     throw "共享全局提示词源文件不存在：$globalAgentsSource"
 }
 
+if (-not (Test-Path -LiteralPath $codexDefaultAgentSource -PathType Leaf)) {
+    throw "Codex 默认子代理源文件不存在：$codexDefaultAgentSource"
+}
+
 $sourceDir = (Resolve-Path -LiteralPath $sourceDir).Path
 $globalAgentsSource = (Resolve-Path -LiteralPath $globalAgentsSource).Path
 $targetDir = Join-Path $HOME '.agents\skills'
 $codexTargetDir = Join-Path $HOME '.codex'
 $codexAgentsTarget = Join-Path $codexTargetDir 'AGENTS.md'
+$codexDefaultAgentTarget = Join-Path $codexTargetDir 'agents\default.toml'
 $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
 $isWindowsPlatform = $env:OS -eq 'Windows_NT'
 $platform = if ($isWindowsPlatform) { 'windows' } else { 'unix' }
@@ -175,6 +181,29 @@ function Install-GlobalAgentsFile {
     Write-Output "已复制 $codexAgentsTarget <- $globalAgentsSource"
 }
 
+function Install-CodexDefaultAgent {
+    $targetParent = Split-Path -Parent $codexDefaultAgentTarget
+    New-Item -ItemType Directory -Path $targetParent -Force | Out-Null
+
+    $existing = Get-Item -LiteralPath $codexDefaultAgentTarget -Force -ErrorAction SilentlyContinue
+    if ($null -ne $existing) {
+        $unchanged = -not (Test-IsLinkLike -Item $existing) -and
+            -not $existing.PSIsContainer -and
+            (Get-FileHash -LiteralPath $codexDefaultAgentSource -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $codexDefaultAgentTarget -Algorithm SHA256).Hash
+
+        if ($unchanged) {
+            Write-Output "Codex 默认子代理已是最新状态：$codexDefaultAgentTarget"
+            return
+        }
+
+        Backup-Item -Path $codexDefaultAgentTarget
+    }
+
+    Copy-Item -LiteralPath $codexDefaultAgentSource -Destination $codexDefaultAgentTarget
+    Write-Output "已复制 $codexDefaultAgentTarget <- $codexDefaultAgentSource"
+}
+
 function Test-SkillSupportsPlatform {
     param(
         [Parameter(Mandatory = $true)]
@@ -272,6 +301,21 @@ function Test-Installation {
         $consistent = $false
     }
 
+    $defaultAgentExisting = Get-Item -LiteralPath $codexDefaultAgentTarget -Force -ErrorAction SilentlyContinue
+    $defaultAgentCurrent = $null -ne $defaultAgentExisting -and
+        -not (Test-IsLinkLike -Item $defaultAgentExisting) -and
+        -not $defaultAgentExisting.PSIsContainer -and
+        (Get-FileHash -LiteralPath $codexDefaultAgentSource -Algorithm SHA256).Hash -eq
+        (Get-FileHash -LiteralPath $codexDefaultAgentTarget -Algorithm SHA256).Hash
+
+    if ($defaultAgentCurrent) {
+        Write-Information "Codex 默认子代理状态一致：$codexDefaultAgentTarget" -InformationAction Continue
+    }
+    else {
+        Write-Warning "Codex 默认子代理状态不一致：$codexDefaultAgentTarget"
+        $consistent = $false
+    }
+
     if ($consistent) {
         Write-Information '安装状态一致' -InformationAction Continue
     }
@@ -298,3 +342,4 @@ foreach ($source in Get-InstallableSkill) {
 
 Remove-StaleManagedLink
 Install-GlobalAgentsFile
+Install-CodexDefaultAgent
