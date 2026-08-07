@@ -10,6 +10,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'pi'
 $commonAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
 $piGlobalAgentsSource = Join-Path $repoRoot 'pi\AGENTS.md'
+$piDefaultAgentSource = Join-Path $repoRoot 'pi\agents\default.md'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
     throw 'HOME 未设置'
@@ -31,6 +32,7 @@ else {
 
 $magicContextTarget = Join-Path $configHome 'cortexkit\magic-context.jsonc'
 $subagentConfigTarget = Join-Path $piConfigDir 'extensions\subagent\config.json'
+$defaultAgentTarget = Join-Path $piConfigDir 'agents\default.md'
 $sourceSettings = Join-Path $sourceDir 'settings.json'
 $sourceModels = Join-Path $sourceDir 'models.json'
 $sourceMcp = Join-Path $sourceDir 'mcp.json'
@@ -595,18 +597,24 @@ try {
         throw "Pi 派发提示词源文件不存在：$piGlobalAgentsSource"
     }
 
+    if (-not (Test-Path -LiteralPath $piDefaultAgentSource -PathType Leaf)) {
+        throw "Pi default agent 源文件不存在：$piDefaultAgentSource"
+    }
+
     $stagedSettings = Join-Path $stagedDir 'settings.json'
     $stagedModels = Join-Path $stagedDir 'models.json'
     $stagedMcp = Join-Path $stagedDir 'mcp.json'
     $stagedMagicContext = Join-Path $stagedDir 'magic-context.jsonc'
     $stagedSubagentConfig = Join-Path $stagedDir 'subagent-config.json'
     $stagedGlobalAgents = Join-Path $stagedDir 'AGENTS.md'
+    $stagedDefaultAgent = Join-Path $stagedDir 'default.md'
 
     Write-StagedJson -Kind settings -SourcePath $sourceSettings -TargetPath (Join-Path $piConfigDir 'settings.json') -StagedPath $stagedSettings
     Write-StagedJson -Kind models -SourcePath $sourceModels -TargetPath (Join-Path $piConfigDir 'models.json') -StagedPath $stagedModels
     Write-StagedJson -Kind mcp -SourcePath $sourceMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -StagedPath $stagedMcp
     Copy-Item -LiteralPath $sourceMagicContext -Destination $stagedMagicContext
     Copy-Item -LiteralPath $sourceSubagentConfig -Destination $stagedSubagentConfig
+    Copy-Item -LiteralPath $piDefaultAgentSource -Destination $stagedDefaultAgent
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText(
         $stagedGlobalAgents,
@@ -634,6 +642,9 @@ try {
         if (-not (Test-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent)) {
             $status = 1
         }
+        if (-not (Test-ManagedFile -StagedPath $stagedDefaultAgent -TargetPath $defaultAgentTarget -Description 'Pi default 子代理角色' -ByteContent)) {
+            $status = 1
+        }
 
         if ($status -eq 0) {
             Write-Information 'Pi 配置状态一致' -InformationAction Continue
@@ -650,6 +661,7 @@ try {
     Install-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -ByteContent
     Install-ManagedFile -StagedPath $stagedSubagentConfig -TargetPath $subagentConfigTarget -Description 'Pi 子代理扩展配置'
     Install-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent
+    Install-ManagedFile -StagedPath $stagedDefaultAgent -TargetPath $defaultAgentTarget -Description 'Pi default 子代理角色' -ByteContent
 }
 finally {
     if ($stagedReady -and (Test-Path -LiteralPath $stagedDir)) {

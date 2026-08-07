@@ -6,7 +6,36 @@
   "defaultThinkingLevel": "max",
   "subagents": {
     "defaultModel": "gpt-5.6-luna",
-    "defaultThinking": "max"
+    "defaultThinking": "max",
+    "agentOverrides": {
+      "default": {
+        "thinking": "max"
+      },
+      "context-builder": {
+        "thinking": "max"
+      },
+      "delegate": {
+        "thinking": "max"
+      },
+      "oracle": {
+        "thinking": "max"
+      },
+      "planner": {
+        "thinking": "max"
+      },
+      "researcher": {
+        "thinking": "max"
+      },
+      "reviewer": {
+        "thinking": "max"
+      },
+      "scout": {
+        "thinking": "max"
+      },
+      "worker": {
+        "thinking": "max"
+      }
+    }
   },
   "packages": [
     "npm:@cortexkit/pi-magic-context",
