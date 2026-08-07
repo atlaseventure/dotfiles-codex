@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "ida-windows": {
+      "args": [
+        "run",
+        "--directory",
+        "D:\\zzyi\\workspace\\ida-pro-mcp",
+        "--locked",
+        "idalib-mcp",
+        "--stdio"
+      ],
+      "command": "/mnt/c/Users/zzyi/.local/bin/uv.exe"
+    }
+  }
+}

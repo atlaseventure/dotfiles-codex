@@ -197,9 +197,77 @@ test_installer() {
   printf '%s 安装契约通过\n' "${name}"
 }
 
+test_pi_deployer() {
+  local test_home="${TEMP_ROOT}/pi"
+  local settings_target="${test_home}/.pi/agent/settings.json"
+  local models_target="${test_home}/.pi/agent/models.json"
+  local mcp_target="${test_home}/.pi/agent/mcp.json"
+
+  mkdir -p "${test_home}/.pi/agent"
+  cp "${REPO_ROOT}/pi/settings.json" "${settings_target}"
+  cp "${REPO_ROOT}/pi/models.json" "${models_target}"
+  cp "${REPO_ROOT}/pi/mcp.json" "${mcp_target}"
+
+  node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
+const fs = require("node:fs");
+
+const [settingsPath, modelsPath, mcpPath] = process.argv.slice(2);
+const read = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+const write = (path, value) => fs.writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+
+const settings = read(settingsPath);
+settings.lastChangelogVersion = "fixture-version";
+write(settingsPath, settings);
+
+const models = read(modelsPath);
+models.providers.atlas.baseUrl = "http://fixture.invalid/v1";
+models.providers.atlas.apiKey = "fixture-secret";
+models.providers.atlas.headers = { Authorization: "Bearer fixture-secret" };
+write(modelsPath, models);
+
+const mcp = read(mcpPath);
+mcp.mcpServers["ida-windows"].env = { IDA_TOKEN: "fixture-secret" };
+mcp.mcpServers["ida-windows"].headers = { Authorization: "Bearer fixture-secret" };
+mcp.mcpServers["ida-windows"].bearerToken = "fixture-secret";
+write(mcpPath, mcp);
+NODE
+
+  HOME="${test_home}" \
+    PI_CODING_AGENT_DIR="${test_home}/.pi/agent" \
+    XDG_CONFIG_HOME="${test_home}/.config" \
+    "${REPO_ROOT}/script/deploy-pi.sh"
+  HOME="${test_home}" \
+    PI_CODING_AGENT_DIR="${test_home}/.pi/agent" \
+    XDG_CONFIG_HOME="${test_home}/.config" \
+    "${REPO_ROOT}/script/deploy-pi.sh" --check
+
+  node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
+const fs = require("node:fs");
+
+const [settingsPath, modelsPath, mcpPath] = process.argv.slice(2);
+const read = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+const settings = read(settingsPath);
+const models = read(modelsPath);
+const mcp = read(mcpPath);
+
+if (settings.lastChangelogVersion !== "fixture-version") throw new Error("lastChangelogVersion 未保留");
+if (models.providers.atlas.baseUrl !== "http://fixture.invalid/v1") throw new Error("模型 baseUrl 未保留");
+if (models.providers.atlas.apiKey !== "fixture-secret") throw new Error("模型 apiKey 未保留");
+if (models.providers.atlas.headers.Authorization !== "Bearer fixture-secret") throw new Error("模型请求头未保留");
+const server = mcp.mcpServers["ida-windows"];
+if (server.env.IDA_TOKEN !== "fixture-secret") throw new Error("MCP 环境变量未保留");
+if (server.headers.Authorization !== "Bearer fixture-secret") throw new Error("MCP 请求头未保留");
+if (server.bearerToken !== "fixture-secret") throw new Error("MCP token 未保留");
+NODE
+
+  [[ "$(backup_count "${test_home}")" == "0" ]] ||
+    fail 'Pi 配置重复部署创建了不必要的备份'
+  printf 'Pi 配置部署契约通过\n'
+}
+
 cd -- "${REPO_ROOT}"
 
-for command_name in bash shellcheck pwsh rg; do
+for command_name in bash node shellcheck pwsh rg; do
   require_command "${command_name}"
 done
 
@@ -213,8 +281,8 @@ fi
 
 [[ -f "${SKILL_VALIDATOR}" ]] || fail "找不到 Skill 校验器：${SKILL_VALIDATOR}"
 
-bash -n script/install.sh script/check.sh
-shellcheck -s bash script/install.sh script/check.sh
+bash -n script/install.sh script/check.sh script/deploy-pi.sh
+shellcheck -s bash script/install.sh script/check.sh script/deploy-pi.sh
 
 # 这段代码中的变量必须由 PowerShell 展开。
 # shellcheck disable=SC2016
@@ -247,6 +315,7 @@ pwsh -NoProfile -Command '
 '
 
 test_skill_validator
+test_pi_deployer
 test_installer shell --check ./script/install.sh
 test_installer powershell -Check pwsh -NoProfile -File ./script/install.ps1
 

@@ -7,8 +7,10 @@
 - `AGENTS.md`：仅适用于本仓库的维护与验证约定
 - `codex/AGENTS.md`：Codex 全局指令文件
 - `codex/config.toml.example`：当前有效的全局配置模板
+- `pi/`：Pi 全局设置、模型、MCP 和 Magic Context 配置
 - `skills/`：使用 Git 管理的个人全局 Skills
 - `script/install.sh`：macOS、Linux 和 WSL 安装入口
+- `script/deploy-pi.sh`：将仓库中的非敏感 Pi 配置部署到主机
 - `script/install.ps1`：Windows PowerShell 安装入口
 - `script/validate-skills.py`：仓库内 Skill 契约校验器
 - `script/check.sh`：本仓库唯一检查入口
@@ -31,6 +33,10 @@
 | --- | --- | --- |
 | `skills/<name>/` | `$HOME/.agents/skills/<name>` | 创建指向仓库目录的软链接 |
 | `codex/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 复制为全局指令文件 |
+| `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 保留主机值，不同步 |
+| `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头保留主机值 |
+| `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌保留主机值 |
+| `pi/cortexkit/magic-context.jsonc` | `${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc` | Magic Context 用户配置 |
 
 `codex/config.toml.example` 不自动安装。配置可能包含用户环境和认证相关差异，应按需合并到 `$HOME/.codex/config.toml`。
 
@@ -69,6 +75,24 @@ Windows PowerShell 执行：
 - 每个 Skill 在 `agents/openai.yaml` 中声明 `platform` 元数据；安装器按当前系统动态选择可安装的 Skill。
 - `ida-mcp-workspace` 的 `platform.windows` 为 `false`，因此仅在 Unix 安装入口中安装。
 
+## Pi 配置
+
+Pi 配置同步和部署使用 Unix shell 脚本，默认目标为 `$HOME/.pi/agent`；可通过 `PI_CODING_AGENT_DIR` 覆盖 Pi 配置目录，通过 `XDG_CONFIG_HOME` 覆盖 Magic Context 的用户配置目录。
+
+部署配置：
+
+```bash
+./script/deploy-pi.sh
+```
+
+只读检查目标状态：
+
+```bash
+./script/deploy-pi.sh --check
+```
+
+部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。
+
 ## Skill 适用范围
 
 - 本仓库 `skills/` 中的 Skill 安装到用户目录，适用于所有仓库。
@@ -92,4 +116,4 @@ Windows PowerShell 执行：
 ./script/check.sh
 ```
 
-检查入口会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 静态检查，并在临时 `HOME` 下验证两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和陈旧链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
+检查入口会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 静态检查，并在临时 `HOME` 下验证 Pi 配置部署以及两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和陈旧链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
