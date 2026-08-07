@@ -8,7 +8,8 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'pi'
-$globalAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
+$commonAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
+$piGlobalAgentsSource = Join-Path $repoRoot 'pi\AGENTS.md'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
     throw 'HOME 未设置'
@@ -586,8 +587,12 @@ try {
         throw "仓库配置文件不存在：$sourceSubagentConfig"
     }
 
-    if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
-        throw "共享全局提示词源文件不存在：$globalAgentsSource"
+    if (-not (Test-Path -LiteralPath $commonAgentsSource -PathType Leaf)) {
+        throw "通用全局提示词源文件不存在：$commonAgentsSource"
+    }
+
+    if (-not (Test-Path -LiteralPath $piGlobalAgentsSource -PathType Leaf)) {
+        throw "Pi 派发提示词源文件不存在：$piGlobalAgentsSource"
     }
 
     $stagedSettings = Join-Path $stagedDir 'settings.json'
@@ -602,7 +607,12 @@ try {
     Write-StagedJson -Kind mcp -SourcePath $sourceMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -StagedPath $stagedMcp
     Copy-Item -LiteralPath $sourceMagicContext -Destination $stagedMagicContext
     Copy-Item -LiteralPath $sourceSubagentConfig -Destination $stagedSubagentConfig
-    Copy-Item -LiteralPath $globalAgentsSource -Destination $stagedGlobalAgents
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText(
+        $stagedGlobalAgents,
+        [System.IO.File]::ReadAllText($commonAgentsSource) + [System.IO.File]::ReadAllText($piGlobalAgentsSource),
+        $utf8NoBom
+    )
 
     if ($Check) {
         $status = 0

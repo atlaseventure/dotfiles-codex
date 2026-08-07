@@ -160,8 +160,9 @@ test_installer() {
 
   run_installer "${name}" "${command_home}" "$@"
 
-  cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${test_home}/.codex/AGENTS.md" ||
-    fail "${name} 未正确安装共享全局提示词"
+  cmp -s <(cat "${REPO_ROOT}/agents/AGENTS.md" "${REPO_ROOT}/codex/AGENTS.md") \
+    "${test_home}/.codex/AGENTS.md" ||
+    fail "${name} 未正确安装 Codex 全局提示词"
   cmp -s "${REPO_ROOT}/codex/agents/default.toml" "${test_home}/.codex/agents/default.toml" ||
     fail "${name} 未正确安装 Codex 默认子代理"
   for skill_name in "${skill_names[@]}"; do
@@ -246,8 +247,8 @@ NODE
     XDG_CONFIG_HOME="${test_home}/.config" \
     "${REPO_ROOT}/script/deploy-pi.sh" --check
 
-  cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${agents_target}" ||
-    fail 'Pi 未正确安装共享全局提示词'
+  cmp -s <(cat "${REPO_ROOT}/agents/AGENTS.md" "${REPO_ROOT}/pi/AGENTS.md") "${agents_target}" ||
+    fail 'Pi 未正确安装通用与 Pi 派发提示词'
   cmp -s "${REPO_ROOT}/pi/extensions/subagent/config.json" "${subagent_target}" ||
     fail 'Pi 未正确安装子代理扩展配置'
 
@@ -337,8 +338,8 @@ NODE
     XDG_CONFIG_HOME="${config_home}" \
     pwsh -NoProfile -File ./script/deploy-pi.ps1 -Check >/dev/null
 
-  cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${agents_target}" ||
-    fail 'PowerShell Pi 未正确安装共享全局提示词'
+  cmp -s <(cat "${REPO_ROOT}/agents/AGENTS.md" "${REPO_ROOT}/pi/AGENTS.md") "${agents_target}" ||
+    fail 'PowerShell Pi 未正确安装通用与 Pi 派发提示词'
   cmp -s "${REPO_ROOT}/pi/extensions/subagent/config.json" "${subagent_target}" ||
     fail 'PowerShell Pi 未正确安装子代理扩展配置'
 
