@@ -265,6 +265,98 @@ NODE
   printf 'Pi 配置部署契约通过\n'
 }
 
+test_pi_deployer_powershell() {
+  local test_home="${TEMP_ROOT}/pi-powershell"
+  local settings_target="${test_home}/.pi/agent/settings.json"
+  local models_target="${test_home}/.pi/agent/models.json"
+  local mcp_target="${test_home}/.pi/agent/mcp.json"
+  local command_home
+  local pi_config_dir
+  local config_home
+
+  mkdir -p "${test_home}/.pi/agent"
+  cp "${REPO_ROOT}/pi/settings.json" "${settings_target}"
+  cp "${REPO_ROOT}/pi/models.json" "${models_target}"
+  cp "${REPO_ROOT}/pi/mcp.json" "${mcp_target}"
+
+  node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
+const fs = require("node:fs");
+
+const [settingsPath, modelsPath, mcpPath] = process.argv.slice(2);
+const read = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+const write = (path, value) => fs.writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+
+const settings = read(settingsPath);
+settings.lastChangelogVersion = "fixture-version";
+write(settingsPath, settings);
+
+const models = read(modelsPath);
+models.providers.atlas.baseUrl = "http://fixture.invalid/v1";
+models.providers.atlas.apiKey = "fixture-secret";
+models.providers.atlas.headers = { Authorization: "Bearer fixture-secret" };
+write(modelsPath, models);
+
+const mcp = read(mcpPath);
+mcp.mcpServers["ida-windows"].env = { IDA_TOKEN: "fixture-secret" };
+mcp.mcpServers["ida-windows"].headers = { Authorization: "Bearer fixture-secret" };
+mcp.mcpServers["ida-windows"].bearerToken = "fixture-secret";
+write(mcpPath, mcp);
+NODE
+
+  command_home=$(installer_home powershell "${test_home}")
+  pi_config_dir=$(installer_home powershell "${test_home}/.pi/agent")
+  config_home=$(installer_home powershell "${test_home}/.config")
+
+  if OS=Windows_NT HOME="${command_home}" \
+    PI_CODING_AGENT_DIR="${pi_config_dir}" \
+    XDG_CONFIG_HOME="${config_home}" \
+    pwsh -NoProfile -File ./script/deploy-pi.ps1 -Check >/dev/null 2>&1; then
+    fail 'PowerShell Pi 检查模式未报告漂移'
+  fi
+  [[ "$(backup_count "${test_home}")" == "0" ]] ||
+    fail 'PowerShell Pi 检查模式修改了目标目录'
+
+  OS=Windows_NT HOME="${command_home}" \
+    PI_CODING_AGENT_DIR="${pi_config_dir}" \
+    XDG_CONFIG_HOME="${config_home}" \
+    pwsh -NoProfile -File ./script/deploy-pi.ps1 >/dev/null
+  OS=Windows_NT HOME="${command_home}" \
+    PI_CODING_AGENT_DIR="${pi_config_dir}" \
+    XDG_CONFIG_HOME="${config_home}" \
+    pwsh -NoProfile -File ./script/deploy-pi.ps1 -Check >/dev/null
+
+  node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
+const fs = require("node:fs");
+
+const [settingsPath, modelsPath, mcpPath] = process.argv.slice(2);
+const read = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+const settings = read(settingsPath);
+const models = read(modelsPath);
+const mcp = read(mcpPath);
+
+if (settings.lastChangelogVersion !== "fixture-version") throw new Error("lastChangelogVersion 未保留");
+if (models.providers.atlas.baseUrl !== "http://fixture.invalid/v1") throw new Error("模型 baseUrl 未保留");
+if (models.providers.atlas.apiKey !== "fixture-secret") throw new Error("模型 apiKey 未保留");
+if (models.providers.atlas.headers.Authorization !== "Bearer fixture-secret") throw new Error("模型请求头未保留");
+const server = mcp.mcpServers["ida-windows"];
+if (server.env.IDA_TOKEN !== "fixture-secret") throw new Error("MCP 环境变量未保留");
+if (server.headers.Authorization !== "Bearer fixture-secret") throw new Error("MCP 请求头未保留");
+if (server.bearerToken !== "fixture-secret") throw new Error("MCP token 未保留");
+if (server.command !== "C:\\Users\\zzyi\\.local\\bin\\uv.exe") throw new Error(`MCP Windows 路径错误: ${server.command}`);
+NODE
+
+  [[ "$(backup_count "${test_home}")" == "1" ]] ||
+    fail 'PowerShell Pi 首次部署的备份数量不正确'
+
+  OS=Windows_NT HOME="${command_home}" \
+    PI_CODING_AGENT_DIR="${pi_config_dir}" \
+    XDG_CONFIG_HOME="${config_home}" \
+    pwsh -NoProfile -File ./script/deploy-pi.ps1 >/dev/null
+  [[ "$(backup_count "${test_home}")" == "1" ]] ||
+    fail 'PowerShell Pi 重复部署创建了额外备份'
+  printf 'PowerShell Pi 配置部署契约通过\n'
+}
+
 cd -- "${REPO_ROOT}"
 
 for command_name in bash node shellcheck pwsh rg; do
@@ -287,16 +379,19 @@ shellcheck -s bash script/install.sh script/check.sh script/deploy-pi.sh
 # 这段代码中的变量必须由 PowerShell 展开。
 # shellcheck disable=SC2016
 pwsh -NoProfile -Command '
-    $tokens = $null
-    $errors = $null
-    [void][System.Management.Automation.Language.Parser]::ParseFile(
-        (Resolve-Path "script/install.ps1"),
-        [ref]$tokens,
-        [ref]$errors
-    )
-    if ($errors.Count -gt 0) {
-        $errors | ForEach-Object { Write-Error $_ }
-        exit 1
+    $paths = @("script/install.ps1", "script/deploy-pi.ps1")
+    foreach ($path in $paths) {
+        $tokens = $null
+        $errors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path $path),
+            [ref]$tokens,
+            [ref]$errors
+        )
+        if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+        }
     }
 '
 
@@ -307,7 +402,10 @@ pwsh -NoProfile -Command '
         throw "缺少 PowerShell 模块 PSScriptAnalyzer"
     }
     Import-Module PSScriptAnalyzer
-    $results = Invoke-ScriptAnalyzer -Path script/install.ps1 -Severity Warning,Error
+    $results = @()
+    foreach ($path in @("script/install.ps1", "script/deploy-pi.ps1")) {
+        $results += @(Invoke-ScriptAnalyzer -Path $path -Severity Warning,Error)
+    }
     if ($results) {
         $results | Format-Table -AutoSize
         exit 1
@@ -316,6 +414,7 @@ pwsh -NoProfile -Command '
 
 test_skill_validator
 test_pi_deployer
+test_pi_deployer_powershell
 test_installer shell --check ./script/install.sh
 test_installer powershell -Check pwsh -NoProfile -File ./script/install.ps1
 

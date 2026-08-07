@@ -10,7 +10,8 @@
 - `pi/`：Pi 全局设置、模型、MCP 和 Magic Context 配置
 - `skills/`：使用 Git 管理的个人全局 Skills
 - `script/install.sh`：macOS、Linux 和 WSL 安装入口
-- `script/deploy-pi.sh`：将仓库中的非敏感 Pi 配置部署到主机
+- `script/deploy-pi.sh`：将仓库中的非敏感 Pi 配置部署到 Unix 主机
+- `script/deploy-pi.ps1`：使用 PowerShell 7 将仓库中的非敏感 Pi 配置部署到 Windows 主机
 - `script/install.ps1`：Windows PowerShell 安装入口
 - `script/validate-skills.py`：仓库内 Skill 契约校验器
 - `script/check.sh`：本仓库唯一检查入口
@@ -48,10 +49,10 @@ macOS、Linux 或 WSL 执行：
 ./script/install.sh
 ```
 
-Windows PowerShell 执行：
+Windows PowerShell 7 执行：
 
 ```powershell
-.\script\install.ps1
+pwsh -NoProfile -File .\script\install.ps1
 ```
 
 只读检查当前账户的安装状态：
@@ -61,7 +62,7 @@ Windows PowerShell 执行：
 ```
 
 ```powershell
-.\script\install.ps1 -Check
+pwsh -NoProfile -File .\script\install.ps1 -Check
 ```
 
 检查模式不会创建目录、备份、文件或软链接；存在缺失、冲突、内容漂移或本仓库遗留的陈旧链接时返回非零退出码。
@@ -77,12 +78,18 @@ Windows PowerShell 执行：
 
 ## Pi 配置
 
-Pi 配置同步和部署使用 Unix shell 脚本，默认目标为 `$HOME/.pi/agent`；可通过 `PI_CODING_AGENT_DIR` 覆盖 Pi 配置目录，通过 `XDG_CONFIG_HOME` 覆盖 Magic Context 的用户配置目录。
+Pi 配置同步和部署按主机使用对应的脚本：Unix 或 WSL 使用 `deploy-pi.sh`，Windows 原生环境使用 PowerShell 7 的 `deploy-pi.ps1`。默认目标为 `$HOME/.pi/agent`；可通过 `PI_CODING_AGENT_DIR` 覆盖 Pi 配置目录，通过 `XDG_CONFIG_HOME` 覆盖 Magic Context 的用户配置目录。
 
 部署配置：
 
 ```bash
 ./script/deploy-pi.sh
+```
+
+Windows PowerShell 7 执行：
+
+```powershell
+pwsh -NoProfile -File .\script\deploy-pi.ps1
 ```
 
 只读检查目标状态：
@@ -91,7 +98,11 @@ Pi 配置同步和部署使用 Unix shell 脚本，默认目标为 `$HOME/.pi/ag
 ./script/deploy-pi.sh --check
 ```
 
-部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。
+```powershell
+pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
+```
+
+部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
 
 ## Skill 适用范围
 
@@ -116,4 +127,4 @@ Pi 配置同步和部署使用 Unix shell 脚本，默认目标为 `$HOME/.pi/ag
 ./script/check.sh
 ```
 
-检查入口会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 静态检查，并在临时 `HOME` 下验证 Pi 配置部署以及两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和陈旧链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
+`script/check.sh` 会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 7 静态检查，并在临时 `HOME` 下验证 Pi 配置部署以及两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和陈旧链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
