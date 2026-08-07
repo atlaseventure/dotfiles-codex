@@ -159,8 +159,8 @@ test_installer() {
 
   run_installer "${name}" "${command_home}" "$@"
 
-  cmp -s "${REPO_ROOT}/codex/AGENTS.md" "${test_home}/.codex/AGENTS.md" ||
-    fail "${name} 未正确安装 Codex AGENTS.md"
+  cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${test_home}/.codex/AGENTS.md" ||
+    fail "${name} 未正确安装共享全局提示词"
   for skill_name in "${skill_names[@]}"; do
     assert_link \
       "${test_home}/.agents/skills/${skill_name}" \
@@ -202,6 +202,7 @@ test_pi_deployer() {
   local settings_target="${test_home}/.pi/agent/settings.json"
   local models_target="${test_home}/.pi/agent/models.json"
   local mcp_target="${test_home}/.pi/agent/mcp.json"
+  local agents_target="${test_home}/.pi/agent/AGENTS.md"
 
   mkdir -p "${test_home}/.pi/agent"
   cp "${REPO_ROOT}/pi/settings.json" "${settings_target}"
@@ -241,6 +242,9 @@ NODE
     XDG_CONFIG_HOME="${test_home}/.config" \
     "${REPO_ROOT}/script/deploy-pi.sh" --check
 
+  cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${agents_target}" ||
+    fail 'Pi 未正确安装共享全局提示词'
+
   node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
 const fs = require("node:fs");
 
@@ -270,6 +274,7 @@ test_pi_deployer_powershell() {
   local settings_target="${test_home}/.pi/agent/settings.json"
   local models_target="${test_home}/.pi/agent/models.json"
   local mcp_target="${test_home}/.pi/agent/mcp.json"
+  local agents_target="${test_home}/.pi/agent/AGENTS.md"
   local command_home
   local pi_config_dir
   local config_home
@@ -324,6 +329,9 @@ NODE
     PI_CODING_AGENT_DIR="${pi_config_dir}" \
     XDG_CONFIG_HOME="${config_home}" \
     pwsh -NoProfile -File ./script/deploy-pi.ps1 -Check >/dev/null
+
+  cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${agents_target}" ||
+    fail 'PowerShell Pi 未正确安装共享全局提示词'
 
   node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
 const fs = require("node:fs");

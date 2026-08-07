@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'skills'
-$codexAgentsSource = Join-Path $repoRoot 'codex\AGENTS.md'
+$globalAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
     throw 'HOME 未设置'
@@ -18,12 +18,12 @@ if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
     throw "Skill 源目录不存在：$sourceDir"
 }
 
-if (-not (Test-Path -LiteralPath $codexAgentsSource -PathType Leaf)) {
-    throw "Codex AGENTS.md 源文件不存在：$codexAgentsSource"
+if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
+    throw "共享全局提示词源文件不存在：$globalAgentsSource"
 }
 
 $sourceDir = (Resolve-Path -LiteralPath $sourceDir).Path
-$codexAgentsSource = (Resolve-Path -LiteralPath $codexAgentsSource).Path
+$globalAgentsSource = (Resolve-Path -LiteralPath $globalAgentsSource).Path
 $targetDir = Join-Path $HOME '.agents\skills'
 $codexTargetDir = Join-Path $HOME '.codex'
 $codexAgentsTarget = Join-Path $codexTargetDir 'AGENTS.md'
@@ -155,24 +155,24 @@ function Remove-StaleManagedLink {
     }
 }
 
-function Install-CodexAgentFile {
+function Install-GlobalAgentsFile {
     $existing = Get-Item -LiteralPath $codexAgentsTarget -Force -ErrorAction SilentlyContinue
     if ($null -ne $existing) {
         $unchanged = -not (Test-IsLinkLike -Item $existing) -and
             -not $existing.PSIsContainer -and
-            (Get-FileHash -LiteralPath $codexAgentsSource -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $globalAgentsSource -Algorithm SHA256).Hash -eq
             (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
 
         if ($unchanged) {
-            Write-Output "Codex AGENTS.md 已是最新状态：$codexAgentsTarget"
+            Write-Output "共享全局提示词已是最新状态：$codexAgentsTarget"
             return
         }
 
         Backup-Item -Path $codexAgentsTarget
     }
 
-    Copy-Item -LiteralPath $codexAgentsSource -Destination $codexAgentsTarget
-    Write-Output "已复制 $codexAgentsTarget <- $codexAgentsSource"
+    Copy-Item -LiteralPath $globalAgentsSource -Destination $codexAgentsTarget
+    Write-Output "已复制 $codexAgentsTarget <- $globalAgentsSource"
 }
 
 function Test-SkillSupportsPlatform {
@@ -261,14 +261,14 @@ function Test-Installation {
     $agentsCurrent = $null -ne $agentsExisting -and
         -not (Test-IsLinkLike -Item $agentsExisting) -and
         -not $agentsExisting.PSIsContainer -and
-        (Get-FileHash -LiteralPath $codexAgentsSource -Algorithm SHA256).Hash -eq
+        (Get-FileHash -LiteralPath $globalAgentsSource -Algorithm SHA256).Hash -eq
         (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
 
     if ($agentsCurrent) {
-        Write-Information "Codex AGENTS.md 状态一致：$codexAgentsTarget" -InformationAction Continue
+        Write-Information "共享全局提示词状态一致：$codexAgentsTarget" -InformationAction Continue
     }
     else {
-        Write-Warning "Codex AGENTS.md 状态不一致：$codexAgentsTarget"
+        Write-Warning "共享全局提示词状态不一致：$codexAgentsTarget"
         $consistent = $false
     }
 
@@ -297,4 +297,4 @@ foreach ($source in Get-InstallableSkill) {
 }
 
 Remove-StaleManagedLink
-Install-CodexAgentFile
+Install-GlobalAgentsFile

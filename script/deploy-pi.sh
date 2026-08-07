@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/pi"
+GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
 HOME_DIR="${HOME:?HOME 未设置}"
 PI_CONFIG_DIR="${PI_CODING_AGENT_DIR:-${HOME_DIR}/.pi/agent}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME_DIR}/.config}"
@@ -55,6 +56,7 @@ SOURCE_MAGIC_CONTEXT="${SOURCE_DIR}/cortexkit/magic-context.jsonc"
 for source in "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_MAGIC_CONTEXT}"; do
   [[ -f "${source}" ]] || fail "仓库配置文件不存在：${source}"
 done
+[[ -f "${GLOBAL_AGENTS_SOURCE}" ]] || fail "共享全局提示词源文件不存在：${GLOBAL_AGENTS_SOURCE}"
 
 # 仓库源文件禁止出现会随主机变化或包含凭据的字段。
 node - "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" <<'NODE'
@@ -245,24 +247,27 @@ STAGED_SETTINGS="${STAGED_DIR}/settings.json"
 STAGED_MODELS="${STAGED_DIR}/models.json"
 STAGED_MCP="${STAGED_DIR}/mcp.json"
 STAGED_MAGIC_CONTEXT="${STAGED_DIR}/magic-context.jsonc"
+STAGED_GLOBAL_AGENTS="${STAGED_DIR}/AGENTS.md"
 
 stage_json settings "${SOURCE_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" "${STAGED_SETTINGS}"
 stage_json models "${SOURCE_MODELS}" "${PI_CONFIG_DIR}/models.json" "${STAGED_MODELS}"
 stage_json mcp "${SOURCE_MCP}" "${PI_CONFIG_DIR}/mcp.json" "${STAGED_MCP}"
 cp -- "${SOURCE_MAGIC_CONTEXT}" "${STAGED_MAGIC_CONTEXT}"
+cp -- "${GLOBAL_AGENTS_SOURCE}" "${STAGED_GLOBAL_AGENTS}"
 
 check_file() {
   local staged=$1
   local target=$2
   local description=$3
   local mode=$4
+  local comparison=${5:-json}
   local actual_mode
 
   if [[ -L "${target}" || ! -f "${target}" ]]; then
     printf '存在漂移：%s（目标不是普通文件）\n' "${description}" >&2
     return 1
   fi
-  if [[ "${description}" == 'Magic Context 配置' ]]; then
+  if [[ "${comparison}" == 'bytes' ]]; then
     if ! cmp -s "${staged}" "${target}"; then
       printf '存在漂移：%s\n' "${description}" >&2
       return 1
@@ -284,11 +289,12 @@ install_file() {
   local target=$2
   local description=$3
   local mode=$4
+  local comparison=${5:-json}
   local actual_mode
 
   mkdir -p -- "$(dirname "${target}")"
   if [[ -f "${target}" && ! -L "${target}" ]]; then
-    if [[ "${description}" == 'Magic Context 配置' ]]; then
+    if [[ "${comparison}" == 'bytes' ]]; then
       if cmp -s "${staged}" "${target}"; then
         printf '已是最新状态：%s\n' "${description}"
         return
@@ -318,7 +324,8 @@ if [[ "${MODE}" == "check" ]]; then
   check_file "${STAGED_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" 'Pi settings.json' 644 || status=1
   check_file "${STAGED_MODELS}" "${PI_CONFIG_DIR}/models.json" 'Pi models.json' 600 || status=1
   check_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600 || status=1
-  check_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 || status=1
+  check_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes || status=1
+  check_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes || status=1
   if ((status == 0)); then
     printf 'Pi 配置状态一致\n'
     exit 0
@@ -331,4 +338,5 @@ mkdir -p -- "${PI_CONFIG_DIR}"
 install_file "${STAGED_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" 'Pi settings.json' 644
 install_file "${STAGED_MODELS}" "${PI_CONFIG_DIR}/models.json" 'Pi models.json' 600
 install_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600
-install_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644
+install_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes
+install_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes

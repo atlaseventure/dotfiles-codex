@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/skills"
-CODEX_AGENTS_SOURCE="${REPO_ROOT}/codex/AGENTS.md"
+GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
 TARGET_DIR="${HOME:?HOME 未设置}/.agents/skills"
 CODEX_TARGET_DIR="${HOME}/.codex"
 CODEX_AGENTS_TARGET="${CODEX_TARGET_DIR}/AGENTS.md"
@@ -31,8 +31,8 @@ if [[ ! -d "${SOURCE_DIR}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${CODEX_AGENTS_SOURCE}" ]]; then
-  printf 'Codex AGENTS.md 源文件不存在：%s\n' "${CODEX_AGENTS_SOURCE}" >&2
+if [[ ! -f "${GLOBAL_AGENTS_SOURCE}" ]]; then
+  printf '共享全局提示词源文件不存在：%s\n' "${GLOBAL_AGENTS_SOURCE}" >&2
   exit 1
 fi
 
@@ -120,18 +120,18 @@ remove_stale_managed_links() {
   shopt -u nullglob
 }
 
-install_codex_agents() {
+install_global_agents() {
   if [[ -L "${CODEX_AGENTS_TARGET}" || -e "${CODEX_AGENTS_TARGET}" ]]; then
     if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
-      cmp -s "${CODEX_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
-      printf 'Codex AGENTS.md 已是最新状态：%s\n' "${CODEX_AGENTS_TARGET}"
+      cmp -s "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
+      printf '共享全局提示词已是最新状态：%s\n' "${CODEX_AGENTS_TARGET}"
       return
     fi
     backup_item "${CODEX_AGENTS_TARGET}"
   fi
 
-  cp "${CODEX_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"
-  printf '已复制 %s <- %s\n' "${CODEX_AGENTS_TARGET}" "${CODEX_AGENTS_SOURCE}"
+  cp "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"
+  printf '已复制 %s <- %s\n' "${CODEX_AGENTS_TARGET}" "${GLOBAL_AGENTS_SOURCE}"
 }
 
 check_skill() {
@@ -168,14 +168,14 @@ check_stale_managed_links() {
   return "${status}"
 }
 
-check_codex_agents() {
+check_global_agents() {
   if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
-    cmp -s "${CODEX_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
-    printf 'Codex AGENTS.md 状态一致：%s\n' "${CODEX_AGENTS_TARGET}"
+    cmp -s "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
+    printf '共享全局提示词状态一致：%s\n' "${CODEX_AGENTS_TARGET}"
     return 0
   fi
 
-  printf 'Codex AGENTS.md 状态不一致：%s\n' "${CODEX_AGENTS_TARGET}" >&2
+  printf '共享全局提示词状态不一致：%s\n' "${CODEX_AGENTS_TARGET}" >&2
   return 1
 }
 
@@ -198,7 +198,7 @@ check_installation() {
   if ! check_stale_managed_links; then
     status=1
   fi
-  if ! check_codex_agents; then
+  if ! check_global_agents; then
     status=1
   fi
 
@@ -231,4 +231,4 @@ done
 shopt -u nullglob
 
 remove_stale_managed_links
-install_codex_agents
+install_global_agents

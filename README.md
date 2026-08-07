@@ -1,11 +1,10 @@
 # dotfiles-codex
 
-这是一个用于管理个人 Codex 全局指令、Skills 和配置模板的仓库。
+这是一个用于管理个人 Codex 与 Pi 全局提示词、Skills 和配置模板的仓库。
 
 ## 目录结构
 
-- `AGENTS.md`：仅适用于本仓库的维护与验证约定
-- `codex/AGENTS.md`：Codex 全局指令文件
+- `agents/AGENTS.md`：Codex 与 Pi 共用的全局提示词
 - `codex/config.toml.example`：当前有效的全局配置模板
 - `pi/`：Pi 全局设置、模型、MCP 和 Magic Context 配置
 - `skills/`：使用 Git 管理的个人全局 Skills
@@ -20,7 +19,7 @@
 
 | 层次 | 权威来源 | 职责 |
 | --- | --- | --- |
-| 用户全局 | `codex/AGENTS.md` | 跨仓库生效的沟通方式、执行边界和通用工程原则 |
+| 用户全局 | `agents/AGENTS.md` | Codex 与 Pi 共用的跨仓库沟通方式、执行边界和通用工程原则 |
 | 项目级 | 项目根目录或子目录的 `AGENTS.md` | 当前仓库或目录的架构、命令、验证和评审规则 |
 | 可复用流程 | `skills/*/SKILL.md` | 有明确触发条件、需要按需加载的任务工作流 |
 | 调用策略 | `skills/*/agents/openai.yaml` | Skill 展示信息、默认提示词和是否允许隐式调用 |
@@ -33,7 +32,8 @@
 | 仓库源文件 | 安装目标 | 行为 |
 | --- | --- | --- |
 | `skills/<name>/` | `$HOME/.agents/skills/<name>` | 创建指向仓库目录的软链接 |
-| `codex/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 复制为全局指令文件 |
+| `agents/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 复制到 Codex 全局提示词位置 |
+| `agents/AGENTS.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md` | 复制到 Pi 全局提示词位置 |
 | `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 保留主机值，不同步 |
 | `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头保留主机值 |
 | `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌保留主机值 |
@@ -78,7 +78,7 @@ pwsh -NoProfile -File .\script\install.ps1 -Check
 
 ## Pi 配置
 
-Pi 配置同步和部署按主机使用对应的脚本：Unix 或 WSL 使用 `deploy-pi.sh`，Windows 原生环境使用 PowerShell 7 的 `deploy-pi.ps1`。默认目标为 `$HOME/.pi/agent`；可通过 `PI_CODING_AGENT_DIR` 覆盖 Pi 配置目录，通过 `XDG_CONFIG_HOME` 覆盖 Magic Context 的用户配置目录。
+Pi 配置同步和部署按主机使用对应的脚本：Unix 或 WSL 使用 `deploy-pi.sh`，Windows 原生环境使用 PowerShell 7 的 `deploy-pi.ps1`。默认目标为 `$HOME/.pi/agent`；可通过 `PI_CODING_AGENT_DIR` 覆盖 Pi 配置和全局提示词目录，通过 `XDG_CONFIG_HOME` 覆盖 Magic Context 的用户配置目录。
 
 部署配置：
 
@@ -102,7 +102,7 @@ pwsh -NoProfile -File .\script\deploy-pi.ps1
 pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
 ```
 
-部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
+部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 安装为 Pi 的全局上下文文件。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
 
 ## Skill 适用范围
 

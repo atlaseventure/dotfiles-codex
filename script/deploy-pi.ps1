@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'pi'
+$globalAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
     throw 'HOME 未设置'
@@ -489,7 +490,7 @@ function Test-ManagedFile {
         [Parameter(Mandatory = $true)]
         [string]$Description,
 
-        [switch]$MagicContext
+        [switch]$ByteContent
     )
 
     $existing = Get-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
@@ -502,7 +503,7 @@ function Test-ManagedFile {
         return $false
     }
 
-    $equal = if ($MagicContext) {
+    $equal = if ($ByteContent) {
         Test-FileBytesEqual -Left $StagedPath -Right $TargetPath
     }
     else {
@@ -529,7 +530,7 @@ function Install-ManagedFile {
         [Parameter(Mandatory = $true)]
         [string]$Description,
 
-        [switch]$MagicContext
+        [switch]$ByteContent
     )
 
     $targetParent = Split-Path -Parent $TargetPath
@@ -537,7 +538,7 @@ function Install-ManagedFile {
 
     $existing = Get-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
     if ($null -ne $existing -and -not $existing.PSIsContainer -and -not (Test-IsLinkLike -Item $existing)) {
-        $equal = if ($MagicContext) {
+        $equal = if ($ByteContent) {
             Test-FileBytesEqual -Left $StagedPath -Right $TargetPath
         }
         else {
@@ -579,15 +580,21 @@ try {
         throw "仓库配置文件不存在：$sourceMagicContext"
     }
 
+    if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
+        throw "共享全局提示词源文件不存在：$globalAgentsSource"
+    }
+
     $stagedSettings = Join-Path $stagedDir 'settings.json'
     $stagedModels = Join-Path $stagedDir 'models.json'
     $stagedMcp = Join-Path $stagedDir 'mcp.json'
     $stagedMagicContext = Join-Path $stagedDir 'magic-context.jsonc'
+    $stagedGlobalAgents = Join-Path $stagedDir 'AGENTS.md'
 
     Write-StagedJson -Kind settings -SourcePath $sourceSettings -TargetPath (Join-Path $piConfigDir 'settings.json') -StagedPath $stagedSettings
     Write-StagedJson -Kind models -SourcePath $sourceModels -TargetPath (Join-Path $piConfigDir 'models.json') -StagedPath $stagedModels
     Write-StagedJson -Kind mcp -SourcePath $sourceMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -StagedPath $stagedMcp
     Copy-Item -LiteralPath $sourceMagicContext -Destination $stagedMagicContext
+    Copy-Item -LiteralPath $globalAgentsSource -Destination $stagedGlobalAgents
 
     if ($Check) {
         $status = 0
@@ -600,7 +607,10 @@ try {
         if (-not (Test-ManagedFile -StagedPath $stagedMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -Description 'Pi MCP 配置')) {
             $status = 1
         }
-        if (-not (Test-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -MagicContext)) {
+        if (-not (Test-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -ByteContent)) {
+            $status = 1
+        }
+        if (-not (Test-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent)) {
             $status = 1
         }
 
@@ -616,7 +626,8 @@ try {
     Install-ManagedFile -StagedPath $stagedSettings -TargetPath (Join-Path $piConfigDir 'settings.json') -Description 'Pi settings.json'
     Install-ManagedFile -StagedPath $stagedModels -TargetPath (Join-Path $piConfigDir 'models.json') -Description 'Pi models.json'
     Install-ManagedFile -StagedPath $stagedMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -Description 'Pi MCP 配置'
-    Install-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -MagicContext
+    Install-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -ByteContent
+    Install-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent
 }
 finally {
     if ($stagedReady -and (Test-Path -LiteralPath $stagedDir)) {
