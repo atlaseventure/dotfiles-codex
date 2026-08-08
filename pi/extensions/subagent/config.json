@@ -1,8 +1,0 @@
-{
-  "parallel": {
-    "maxTasks": 6,
-    "concurrency": 6
-  },
-  "globalConcurrencyLimit": 6,
-  "maxSubagentDepth": 1
-}

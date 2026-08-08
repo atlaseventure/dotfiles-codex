@@ -29,12 +29,10 @@ else {
 }
 
 $magicContextTarget = Join-Path $configHome 'cortexkit\magic-context.jsonc'
-$subagentConfigTarget = Join-Path $piConfigDir 'extensions\subagent\config.json'
 $sourceSettings = Join-Path $sourceDir 'settings.json'
 $sourceModels = Join-Path $sourceDir 'models.json'
 $sourceMcp = Join-Path $sourceDir 'mcp.json'
 $sourceMagicContext = Join-Path $sourceDir 'cortexkit\magic-context.jsonc'
-$sourceSubagentConfig = Join-Path $sourceDir 'extensions\subagent\config.json'
 $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
 $forbiddenKeyPattern = [regex]::new(
     '^(baseUrl|apiKey|api_key|headers|bearerToken|bearerTokenEnv|clientSecret|password|secret|token)$',
@@ -569,7 +567,7 @@ try {
     New-Item -ItemType Directory -Path $stagedDir -Force | Out-Null
     $stagedReady = $true
 
-    $sourceFiles = @($sourceSettings, $sourceModels, $sourceMcp, $sourceSubagentConfig)
+    $sourceFiles = @($sourceSettings, $sourceModels, $sourceMcp)
     foreach ($sourcePath in $sourceFiles) {
         $sourceValue = Read-JsonFile -Path $sourcePath
         if (-not (Test-IsMap -Value $sourceValue)) {
@@ -582,10 +580,6 @@ try {
         throw "仓库配置文件不存在：$sourceMagicContext"
     }
 
-    if (-not (Test-Path -LiteralPath $sourceSubagentConfig -PathType Leaf)) {
-        throw "仓库配置文件不存在：$sourceSubagentConfig"
-    }
-
     if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
         throw "共享全局提示词源文件不存在：$globalAgentsSource"
     }
@@ -594,14 +588,12 @@ try {
     $stagedModels = Join-Path $stagedDir 'models.json'
     $stagedMcp = Join-Path $stagedDir 'mcp.json'
     $stagedMagicContext = Join-Path $stagedDir 'magic-context.jsonc'
-    $stagedSubagentConfig = Join-Path $stagedDir 'subagent-config.json'
     $stagedGlobalAgents = Join-Path $stagedDir 'AGENTS.md'
 
     Write-StagedJson -Kind settings -SourcePath $sourceSettings -TargetPath (Join-Path $piConfigDir 'settings.json') -StagedPath $stagedSettings
     Write-StagedJson -Kind models -SourcePath $sourceModels -TargetPath (Join-Path $piConfigDir 'models.json') -StagedPath $stagedModels
     Write-StagedJson -Kind mcp -SourcePath $sourceMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -StagedPath $stagedMcp
     Copy-Item -LiteralPath $sourceMagicContext -Destination $stagedMagicContext
-    Copy-Item -LiteralPath $sourceSubagentConfig -Destination $stagedSubagentConfig
     Copy-Item -LiteralPath $globalAgentsSource -Destination $stagedGlobalAgents
 
     if ($Check) {
@@ -616,9 +608,6 @@ try {
             $status = 1
         }
         if (-not (Test-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -ByteContent)) {
-            $status = 1
-        }
-        if (-not (Test-ManagedFile -StagedPath $stagedSubagentConfig -TargetPath $subagentConfigTarget -Description 'Pi 子代理扩展配置')) {
             $status = 1
         }
         if (-not (Test-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent)) {
@@ -638,7 +627,6 @@ try {
     Install-ManagedFile -StagedPath $stagedModels -TargetPath (Join-Path $piConfigDir 'models.json') -Description 'Pi models.json'
     Install-ManagedFile -StagedPath $stagedMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -Description 'Pi MCP 配置'
     Install-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -ByteContent
-    Install-ManagedFile -StagedPath $stagedSubagentConfig -TargetPath $subagentConfigTarget -Description 'Pi 子代理扩展配置'
     Install-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent
 }
 finally {

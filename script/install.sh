@@ -5,11 +5,9 @@ SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/skills"
 GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
-CODEX_DEFAULT_AGENT_SOURCE="${REPO_ROOT}/codex/agents/default.toml"
 TARGET_DIR="${HOME:?HOME 未设置}/.agents/skills"
 CODEX_TARGET_DIR="${HOME}/.codex"
 CODEX_AGENTS_TARGET="${CODEX_TARGET_DIR}/AGENTS.md"
-CODEX_DEFAULT_AGENT_TARGET="${CODEX_TARGET_DIR}/agents/default.toml"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
 MODE=install
 PLATFORM=unix
@@ -35,11 +33,6 @@ fi
 
 if [[ ! -f "${GLOBAL_AGENTS_SOURCE}" ]]; then
   printf '共享全局提示词源文件不存在：%s\n' "${GLOBAL_AGENTS_SOURCE}" >&2
-  exit 1
-fi
-
-if [[ ! -f "${CODEX_DEFAULT_AGENT_SOURCE}" ]]; then
-  printf 'Codex 默认子代理源文件不存在：%s\n' "${CODEX_DEFAULT_AGENT_SOURCE}" >&2
   exit 1
 fi
 
@@ -141,24 +134,6 @@ install_global_agents() {
   printf '已复制 %s <- %s\n' "${CODEX_AGENTS_TARGET}" "${GLOBAL_AGENTS_SOURCE}"
 }
 
-install_codex_default_agent() {
-  local target_dir
-  target_dir=$(dirname -- "${CODEX_DEFAULT_AGENT_TARGET}")
-  mkdir -p "${target_dir}"
-
-  if [[ -f "${CODEX_DEFAULT_AGENT_TARGET}" && ! -L "${CODEX_DEFAULT_AGENT_TARGET}" ]] &&
-    cmp -s "${CODEX_DEFAULT_AGENT_SOURCE}" "${CODEX_DEFAULT_AGENT_TARGET}"; then
-    printf 'Codex 默认子代理已是最新状态：%s\n' "${CODEX_DEFAULT_AGENT_TARGET}"
-    return
-  fi
-  if [[ -e "${CODEX_DEFAULT_AGENT_TARGET}" || -L "${CODEX_DEFAULT_AGENT_TARGET}" ]]; then
-    backup_item "${CODEX_DEFAULT_AGENT_TARGET}"
-  fi
-
-  cp "${CODEX_DEFAULT_AGENT_SOURCE}" "${CODEX_DEFAULT_AGENT_TARGET}"
-  printf '已复制 %s <- %s\n' "${CODEX_DEFAULT_AGENT_TARGET}" "${CODEX_DEFAULT_AGENT_SOURCE}"
-}
-
 check_skill() {
   local source=$1
   local destination=$2
@@ -204,17 +179,6 @@ check_global_agents() {
   return 1
 }
 
-check_codex_default_agent() {
-  if [[ -f "${CODEX_DEFAULT_AGENT_TARGET}" && ! -L "${CODEX_DEFAULT_AGENT_TARGET}" ]] &&
-    cmp -s "${CODEX_DEFAULT_AGENT_SOURCE}" "${CODEX_DEFAULT_AGENT_TARGET}"; then
-    printf 'Codex 默认子代理状态一致：%s\n' "${CODEX_DEFAULT_AGENT_TARGET}"
-    return 0
-  fi
-
-  printf 'Codex 默认子代理状态不一致：%s\n' "${CODEX_DEFAULT_AGENT_TARGET}" >&2
-  return 1
-}
-
 check_installation() {
   local source
   local status=0
@@ -235,9 +199,6 @@ check_installation() {
     status=1
   fi
   if ! check_global_agents; then
-    status=1
-  fi
-  if ! check_codex_default_agent; then
     status=1
   fi
 
@@ -271,4 +232,3 @@ shopt -u nullglob
 
 remove_stale_managed_links
 install_global_agents
-install_codex_default_agent

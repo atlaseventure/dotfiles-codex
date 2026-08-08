@@ -113,9 +113,8 @@ test_installer() {
   local backup_count_after
   local -a skill_names=()
 
-  mkdir -p "${test_home}/.codex/agents" "${test_home}/.agents/skills" "${external_root}"
+  mkdir -p "${test_home}/.codex" "${test_home}/.agents/skills" "${external_root}"
   printf '旧指令\n' >"${test_home}/.codex/AGENTS.md"
-  printf '旧默认子代理\n' >"${test_home}/.codex/agents/default.toml"
 
   shopt -s nullglob
   for source in "${REPO_ROOT}/skills"/*; do
@@ -162,8 +161,6 @@ test_installer() {
 
   cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${test_home}/.codex/AGENTS.md" ||
     fail "${name} 未正确安装共享全局提示词"
-  cmp -s "${REPO_ROOT}/codex/agents/default.toml" "${test_home}/.codex/agents/default.toml" ||
-    fail "${name} 未正确安装 Codex 默认子代理"
   for skill_name in "${skill_names[@]}"; do
     assert_link \
       "${test_home}/.agents/skills/${skill_name}" \
@@ -186,7 +183,7 @@ test_installer() {
   [[ -L "${test_home}/.agents/skills/other-skill" ]] ||
     fail "${name} 错误删除了其他来源的链接"
 
-  expected_backups=$((${#skill_names[@]} + 2))
+  expected_backups=$((${#skill_names[@]} + 1))
   backup_count_before=$(backup_count "${test_home}")
   [[ "${backup_count_before}" == "${expected_backups}" ]] ||
     fail "${name} 首次安装的备份数量不正确：${backup_count_before}"
@@ -205,7 +202,6 @@ test_pi_deployer() {
   local settings_target="${test_home}/.pi/agent/settings.json"
   local models_target="${test_home}/.pi/agent/models.json"
   local mcp_target="${test_home}/.pi/agent/mcp.json"
-  local subagent_target="${test_home}/.pi/agent/extensions/subagent/config.json"
   local agents_target="${test_home}/.pi/agent/AGENTS.md"
 
   mkdir -p "${test_home}/.pi/agent"
@@ -248,8 +244,6 @@ NODE
 
   cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${agents_target}" ||
     fail 'Pi 未正确安装共享全局提示词'
-  cmp -s "${REPO_ROOT}/pi/extensions/subagent/config.json" "${subagent_target}" ||
-    fail 'Pi 未正确安装子代理扩展配置'
 
   node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
 const fs = require("node:fs");
@@ -280,7 +274,6 @@ test_pi_deployer_powershell() {
   local settings_target="${test_home}/.pi/agent/settings.json"
   local models_target="${test_home}/.pi/agent/models.json"
   local mcp_target="${test_home}/.pi/agent/mcp.json"
-  local subagent_target="${test_home}/.pi/agent/extensions/subagent/config.json"
   local agents_target="${test_home}/.pi/agent/AGENTS.md"
   local command_home
   local pi_config_dir
@@ -339,8 +332,6 @@ NODE
 
   cmp -s "${REPO_ROOT}/agents/AGENTS.md" "${agents_target}" ||
     fail 'PowerShell Pi 未正确安装共享全局提示词'
-  cmp -s "${REPO_ROOT}/pi/extensions/subagent/config.json" "${subagent_target}" ||
-    fail 'PowerShell Pi 未正确安装子代理扩展配置'
 
   node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
 const fs = require("node:fs");
