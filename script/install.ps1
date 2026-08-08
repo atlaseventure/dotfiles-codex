@@ -8,8 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'skills'
-$commonAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
-$codexAgentsSource = Join-Path $repoRoot 'codex\AGENTS.md'
+$globalAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
 $codexDefaultAgentSource = Join-Path $repoRoot 'codex\agents\default.toml'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
@@ -20,12 +19,8 @@ if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
     throw "Skill 源目录不存在：$sourceDir"
 }
 
-if (-not (Test-Path -LiteralPath $commonAgentsSource -PathType Leaf)) {
-    throw "通用全局提示词源文件不存在：$commonAgentsSource"
-}
-
-if (-not (Test-Path -LiteralPath $codexAgentsSource -PathType Leaf)) {
-    throw "Codex 派发提示词源文件不存在：$codexAgentsSource"
+if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
+    throw "共享全局提示词源文件不存在：$globalAgentsSource"
 }
 
 if (-not (Test-Path -LiteralPath $codexDefaultAgentSource -PathType Leaf)) {
@@ -33,8 +28,7 @@ if (-not (Test-Path -LiteralPath $codexDefaultAgentSource -PathType Leaf)) {
 }
 
 $sourceDir = (Resolve-Path -LiteralPath $sourceDir).Path
-$commonAgentsSource = (Resolve-Path -LiteralPath $commonAgentsSource).Path
-$codexAgentsSource = (Resolve-Path -LiteralPath $codexAgentsSource).Path
+$globalAgentsSource = (Resolve-Path -LiteralPath $globalAgentsSource).Path
 $targetDir = Join-Path $HOME '.agents\skills'
 $codexTargetDir = Join-Path $HOME '.codex'
 $codexAgentsTarget = Join-Path $codexTargetDir 'AGENTS.md'
@@ -47,24 +41,6 @@ $pathComparison = if ($isWindowsPlatform) {
 }
 else {
     [System.StringComparison]::Ordinal
-}
-
-function Get-CodexGlobalAgentsContent {
-    return [System.IO.File]::ReadAllText($commonAgentsSource) +
-        [System.IO.File]::ReadAllText($codexAgentsSource)
-}
-
-function Test-CodexGlobalAgentsFile {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        return $false
-    }
-
-    return [System.IO.File]::ReadAllText($Path) -ceq (Get-CodexGlobalAgentsContent)
 }
 
 function Test-IsLinkLike {
@@ -190,19 +166,19 @@ function Install-GlobalAgentsFile {
     if ($null -ne $existing) {
         $unchanged = -not (Test-IsLinkLike -Item $existing) -and
             -not $existing.PSIsContainer -and
-            (Test-CodexGlobalAgentsFile -Path $codexAgentsTarget)
+            (Get-FileHash -LiteralPath $globalAgentsSource -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
 
         if ($unchanged) {
-            Write-Output "Codex 全局提示词已是最新状态：$codexAgentsTarget"
+            Write-Output "共享全局提示词已是最新状态：$codexAgentsTarget"
             return
         }
 
         Backup-Item -Path $codexAgentsTarget
     }
 
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    [System.IO.File]::WriteAllText($codexAgentsTarget, (Get-CodexGlobalAgentsContent), $utf8NoBom)
-    Write-Output "已写入 $codexAgentsTarget <- 通用提示词 + Codex 派发提示词"
+    Copy-Item -LiteralPath $globalAgentsSource -Destination $codexAgentsTarget
+    Write-Output "已复制 $codexAgentsTarget <- $globalAgentsSource"
 }
 
 function Install-CodexDefaultAgent {
@@ -314,13 +290,14 @@ function Test-Installation {
     $agentsCurrent = $null -ne $agentsExisting -and
         -not (Test-IsLinkLike -Item $agentsExisting) -and
         -not $agentsExisting.PSIsContainer -and
-        (Test-CodexGlobalAgentsFile -Path $codexAgentsTarget)
+        (Get-FileHash -LiteralPath $globalAgentsSource -Algorithm SHA256).Hash -eq
+        (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
 
     if ($agentsCurrent) {
-        Write-Information "Codex 全局提示词状态一致：$codexAgentsTarget" -InformationAction Continue
+        Write-Information "共享全局提示词状态一致：$codexAgentsTarget" -InformationAction Continue
     }
     else {
-        Write-Warning "Codex 全局提示词状态不一致：$codexAgentsTarget"
+        Write-Warning "共享全局提示词状态不一致：$codexAgentsTarget"
         $consistent = $false
     }
 

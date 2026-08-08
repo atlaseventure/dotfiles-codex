@@ -4,8 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/pi"
-COMMON_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
-PI_GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/pi/AGENTS.md"
+GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
 HOME_DIR="${HOME:?HOME 未设置}"
 PI_CONFIG_DIR="${PI_CODING_AGENT_DIR:-${HOME_DIR}/.pi/agent}"
 PI_SUBAGENT_CONFIG_TARGET="${PI_CONFIG_DIR}/extensions/subagent/config.json"
@@ -59,8 +58,7 @@ SOURCE_SUBAGENT_CONFIG="${SOURCE_DIR}/extensions/subagent/config.json"
 for source in "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_MAGIC_CONTEXT}" "${SOURCE_SUBAGENT_CONFIG}"; do
   [[ -f "${source}" ]] || fail "仓库配置文件不存在：${source}"
 done
-[[ -f "${COMMON_AGENTS_SOURCE}" ]] || fail "通用全局提示词源文件不存在：${COMMON_AGENTS_SOURCE}"
-[[ -f "${PI_GLOBAL_AGENTS_SOURCE}" ]] || fail "Pi 派发提示词源文件不存在：${PI_GLOBAL_AGENTS_SOURCE}"
+[[ -f "${GLOBAL_AGENTS_SOURCE}" ]] || fail "共享全局提示词源文件不存在：${GLOBAL_AGENTS_SOURCE}"
 
 # 仓库源文件禁止出现会随主机变化或包含凭据的字段。
 node - "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_SUBAGENT_CONFIG}" <<'NODE'
@@ -259,7 +257,7 @@ stage_json models "${SOURCE_MODELS}" "${PI_CONFIG_DIR}/models.json" "${STAGED_MO
 stage_json mcp "${SOURCE_MCP}" "${PI_CONFIG_DIR}/mcp.json" "${STAGED_MCP}"
 cp -- "${SOURCE_MAGIC_CONTEXT}" "${STAGED_MAGIC_CONTEXT}"
 cp -- "${SOURCE_SUBAGENT_CONFIG}" "${STAGED_SUBAGENT_CONFIG}"
-cat -- "${COMMON_AGENTS_SOURCE}" "${PI_GLOBAL_AGENTS_SOURCE}" >"${STAGED_GLOBAL_AGENTS}"
+cp -- "${GLOBAL_AGENTS_SOURCE}" "${STAGED_GLOBAL_AGENTS}"
 
 check_file() {
   local staged=$1

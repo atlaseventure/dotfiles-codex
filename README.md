@@ -4,13 +4,12 @@
 
 ## 目录结构
 
-- `agents/AGENTS.md`：Codex 与 Pi 共用的通用全局提示词基座
-- `codex/AGENTS.md`：Codex 专用的子代理派发规则
-- `pi/AGENTS.md`：Pi 专用的子代理派发规则
+- `agents/AGENTS.md`：Codex 与 Pi 共用的全局提示词
 - `codex/config.toml.example`：当前有效的全局配置模板
 - `codex/agents/default.toml`：Codex 通用探索型子代理配置
 - `pi/`：Pi 全局设置、模型、MCP、子代理和 Magic Context 配置
 - `skills/`：使用 Git 管理的个人全局 Skills
+- `script/install.sh`：macOS、Linux 和 WSL 安装入口
 - `script/deploy-pi.sh`：将仓库中的非敏感 Pi 配置部署到 Unix 主机
 - `script/deploy-pi.ps1`：使用 PowerShell 7 将仓库中的非敏感 Pi 配置部署到 Windows 主机
 - `script/install.ps1`：Windows PowerShell 安装入口
@@ -21,9 +20,7 @@
 
 | 层次 | 权威来源 | 职责 |
 | --- | --- | --- |
-| 用户全局基座 | `agents/AGENTS.md` | Codex 与 Pi 共用的工作方式、测试规则和通用委托原则 |
-| Codex 派发 | `codex/AGENTS.md` | Codex 的派发、等待、通信和 `fork_turns` 规则 |
-| Pi 派发 | `pi/AGENTS.md` | Pi 的 `subagent`、`workflowScript`、`runs.*` 和 `subagent_wait` 规则 |
+| 用户全局 | `agents/AGENTS.md` | Codex 与 Pi 共用的跨仓库沟通方式、执行边界和通用工程原则 |
 | 项目级 | 项目根目录或子目录的 `AGENTS.md` | 当前仓库或目录的架构、命令、验证和评审规则 |
 | 可复用流程 | `skills/*/SKILL.md` | 有明确触发条件、需要按需加载的任务工作流 |
 | 调用策略 | `skills/*/agents/openai.yaml` | Skill 展示信息、默认提示词和是否允许隐式调用 |
@@ -36,16 +33,14 @@
 | 仓库源文件 | 安装目标 | 行为 |
 | --- | --- | --- |
 | `skills/<name>/` | `$HOME/.agents/skills/<name>` | 创建指向仓库目录的软链接 |
-| `agents/AGENTS.md` + `codex/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 安装器拼接通用基座与 Codex 派发提示词后复制到 Codex 全局位置 |
-| `agents/AGENTS.md` + `pi/AGENTS.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md` | Pi 部署器拼接通用基座与 Pi 派发提示词后复制到 Pi 全局位置 |
+| `agents/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 复制到 Codex 全局提示词位置 |
+| `agents/AGENTS.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md` | 复制到 Pi 全局提示词位置 |
 | `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 保留主机值，不同步 |
 | `pi/extensions/subagent/config.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/subagent/config.json` | Pi 子代理并发与嵌套深度；整文件由仓库管理 |
 | `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头保留主机值 |
 | `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌保留主机值 |
 | `pi/cortexkit/magic-context.jsonc` | `${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc` | Magic Context 用户配置 |
 | `codex/agents/default.toml` | `$HOME/.codex/agents/default.toml` | Codex 默认探索型子代理；由安装器备份后覆盖 |
-
-通用规则只维护在 `agents/AGENTS.md`；安装器和 Pi 部署器分别将它与 `codex/AGENTS.md` 或 `pi/AGENTS.md` 拼接后写入目标文件，因此不会复制两份完整的全局提示词。
 
 `codex/config.toml.example` 不自动安装。配置可能包含用户环境和认证相关差异，应按需合并到 `$HOME/.codex/config.toml`。`codex/agents/default.toml` 由安装器部署。
 
@@ -110,7 +105,7 @@ pwsh -NoProfile -File .\script\deploy-pi.ps1
 pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
 ```
 
-部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 与 `pi/AGENTS.md` 拼接后安装为 Pi 的全局上下文文件。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
+部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 安装为 Pi 的全局上下文文件。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
 
 ## Skill 适用范围
 

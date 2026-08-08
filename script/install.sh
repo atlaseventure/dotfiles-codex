@@ -4,8 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/skills"
-COMMON_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
-CODEX_GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/codex/AGENTS.md"
+GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
 CODEX_DEFAULT_AGENT_SOURCE="${REPO_ROOT}/codex/agents/default.toml"
 TARGET_DIR="${HOME:?HOME 未设置}/.agents/skills"
 CODEX_TARGET_DIR="${HOME}/.codex"
@@ -34,13 +33,8 @@ if [[ ! -d "${SOURCE_DIR}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${COMMON_AGENTS_SOURCE}" ]]; then
-  printf '通用全局提示词源文件不存在：%s\n' "${COMMON_AGENTS_SOURCE}" >&2
-  exit 1
-fi
-
-if [[ ! -f "${CODEX_GLOBAL_AGENTS_SOURCE}" ]]; then
-  printf 'Codex 派发提示词源文件不存在：%s\n' "${CODEX_GLOBAL_AGENTS_SOURCE}" >&2
+if [[ ! -f "${GLOBAL_AGENTS_SOURCE}" ]]; then
+  printf '共享全局提示词源文件不存在：%s\n' "${GLOBAL_AGENTS_SOURCE}" >&2
   exit 1
 fi
 
@@ -48,10 +42,6 @@ if [[ ! -f "${CODEX_DEFAULT_AGENT_SOURCE}" ]]; then
   printf 'Codex 默认子代理源文件不存在：%s\n' "${CODEX_DEFAULT_AGENT_SOURCE}" >&2
   exit 1
 fi
-
-CODEX_GLOBAL_AGENTS_STAGED=$(mktemp)
-trap 'rm -f "${CODEX_GLOBAL_AGENTS_STAGED}"' EXIT
-cat -- "${COMMON_AGENTS_SOURCE}" "${CODEX_GLOBAL_AGENTS_SOURCE}" >"${CODEX_GLOBAL_AGENTS_STAGED}"
 
 unique_backup_path() {
   local base=$1
@@ -137,18 +127,18 @@ remove_stale_managed_links() {
   shopt -u nullglob
 }
 
-install_codex_global_agents() {
+install_global_agents() {
   if [[ -L "${CODEX_AGENTS_TARGET}" || -e "${CODEX_AGENTS_TARGET}" ]]; then
     if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
-      cmp -s "${CODEX_GLOBAL_AGENTS_STAGED}" "${CODEX_AGENTS_TARGET}"; then
-      printf 'Codex 全局提示词已是最新状态：%s\n' "${CODEX_AGENTS_TARGET}"
+      cmp -s "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
+      printf '共享全局提示词已是最新状态：%s\n' "${CODEX_AGENTS_TARGET}"
       return
     fi
     backup_item "${CODEX_AGENTS_TARGET}"
   fi
 
-  cp "${CODEX_GLOBAL_AGENTS_STAGED}" "${CODEX_AGENTS_TARGET}"
-  printf '已复制 %s <- 通用提示词 + Codex 派发提示词\n' "${CODEX_AGENTS_TARGET}"
+  cp "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"
+  printf '已复制 %s <- %s\n' "${CODEX_AGENTS_TARGET}" "${GLOBAL_AGENTS_SOURCE}"
 }
 
 install_codex_default_agent() {
@@ -203,14 +193,14 @@ check_stale_managed_links() {
   return "${status}"
 }
 
-check_codex_global_agents() {
+check_global_agents() {
   if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
-    cmp -s "${CODEX_GLOBAL_AGENTS_STAGED}" "${CODEX_AGENTS_TARGET}"; then
-    printf 'Codex 全局提示词状态一致：%s\n' "${CODEX_AGENTS_TARGET}"
+    cmp -s "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
+    printf '共享全局提示词状态一致：%s\n' "${CODEX_AGENTS_TARGET}"
     return 0
   fi
 
-  printf 'Codex 全局提示词状态不一致：%s\n' "${CODEX_AGENTS_TARGET}" >&2
+  printf '共享全局提示词状态不一致：%s\n' "${CODEX_AGENTS_TARGET}" >&2
   return 1
 }
 
@@ -244,7 +234,7 @@ check_installation() {
   if ! check_stale_managed_links; then
     status=1
   fi
-  if ! check_codex_global_agents; then
+  if ! check_global_agents; then
     status=1
   fi
   if ! check_codex_default_agent; then
@@ -280,5 +270,5 @@ done
 shopt -u nullglob
 
 remove_stale_managed_links
-install_codex_global_agents
+install_global_agents
 install_codex_default_agent
