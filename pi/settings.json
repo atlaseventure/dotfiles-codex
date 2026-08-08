@@ -7,7 +7,6 @@
   "packages": [
     "npm:@cortexkit/pi-magic-context",
     "npm:pi-web-access",
-    "npm:pi-mcp-adapter",
-    "npm:pi-subagents"
+    "npm:pi-mcp-adapter"
   ]
 }
