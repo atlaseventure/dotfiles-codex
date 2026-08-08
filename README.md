@@ -25,7 +25,7 @@
 | 调用策略 | `skills/*/agents/openai.yaml` | Skill 展示信息、默认提示词和是否允许隐式调用 |
 | 机械配置 | `codex/config.toml.example` | 模型、sandbox 和 feature 等配置示例 |
 
-当前用户要求和作用域更近的项目指令优先于个人全局默认。一个概念只保留一个权威来源，不把项目规则复制进全局提示词，也不把全局原则重复写入 Skill。
+当前用户要求和作用域更近的项目指令优先于个人全局默认。每个概念保留一个权威来源：项目规则由项目指令维护，全局原则由全局提示词维护，可复用流程由 Skill 维护。
 
 ## 管理范围
 
@@ -34,12 +34,12 @@
 | `skills/<name>/` | `$HOME/.agents/skills/<name>` | 创建指向仓库目录的软链接 |
 | `agents/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 复制到 Codex 全局提示词位置 |
 | `agents/AGENTS.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md` | 复制到 Pi 全局提示词位置 |
-| `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 保留主机值，不同步 |
-| `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头保留主机值 |
-| `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌保留主机值 |
+| `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 以主机值为准 |
+| `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头以主机值为准 |
+| `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌以主机值为准 |
 | `pi/cortexkit/magic-context.jsonc` | `${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc` | Magic Context 用户配置 |
 
-`codex/config.toml.example` 不自动安装。配置可能包含用户环境和认证相关差异，应按需合并到 `$HOME/.codex/config.toml`。
+`codex/config.toml.example` 作为配置示例，按需合并到 `$HOME/.codex/config.toml`；用户环境和认证相关值以主机配置为准。
 
 ## 安装方式
 
@@ -65,14 +65,14 @@ pwsh -NoProfile -File .\script\install.ps1
 pwsh -NoProfile -File .\script\install.ps1 -Check
 ```
 
-检查模式不会创建目录、备份、文件或软链接；存在缺失、冲突、内容漂移或本仓库遗留的陈旧链接时返回非零退出码。
+检查模式仅读取现有状态；发现缺失、冲突、内容漂移或仓库中已删除 Skill 遗留的受管链接时返回非零退出码。
 
 安装器会将目标状态收敛到仓库当前状态：
 
-- 内容和链接未变化时不重写文件、不创建备份。
+- 内容和链接未变化时直接保持现有文件。
 - 同名真实文件、目录或其他来源的软链接会先备份为唯一的 `.bak.<timestamp>` 路径。
 - 仓库中已删除 Skill 所遗留的受管软链接会被清理。
-- 其他来源的 Skill 和软链接不会被删除。
+- 其他来源的 Skill 和软链接保持不变。
 - 每个 Skill 在 `agents/openai.yaml` 中声明 `platform` 元数据；安装器按当前系统动态选择可安装的 Skill。
 - `ida-mcp-workspace` 的 `platform.windows` 为 `false`，因此仅在 Unix 安装入口中安装。
 
@@ -102,23 +102,23 @@ pwsh -NoProfile -File .\script\deploy-pi.ps1
 pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
 ```
 
-部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 安装为 Pi 的全局上下文文件。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
+部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 安装为 Pi 的全局上下文文件。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌按主机值保留；同步范围包括仓库中的非敏感字段，并排除 `auth.json`、`trust.json`、`models-store.json` 与 sessions。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
 
 ## Skill 适用范围
 
 - 本仓库 `skills/` 中的 Skill 安装到用户目录，适用于所有仓库。
-- 仅适用于单个项目的 Skill 应放入该项目的 `.agents/skills`。
-- 需要面向其他用户分发，或需要同时打包 MCP、连接器和展示资源时，再将 Skill 封装为 Plugin。
+- 面向单个项目的 Skill 放入该项目的 `.agents/skills`。
+- 需要面向其他用户分发，或需要同时打包 MCP、连接器和展示资源时，将 Skill 封装为 Plugin。
 
 ## 已管理的 Skills
 
 | Skill | 调用方式 | 用途 |
 | --- | --- | --- |
 | `commit-worktree` | 可隐式调用 | 验证并提交当前任务相关修改 |
-| `audit-task-issues` | 仅显式调用 | 审计当前任务中的问题、绕过行为、遗留风险与修复方案 |
+| `audit-task-issues` | 显式调用 | 审计当前任务中的问题、绕过行为、遗留风险与修复方案 |
 | `ida-mcp-workspace` | 可隐式调用 | 按 SHA-256 准备、校验和复用 IDA MCP 分析对象 |
-| `root-cause-review` | 仅显式调用 | 复盘修复是否建立了正确不变量并解决根因 |
-| `refactor-codebase-structure` | 仅显式调用 | 系统化拆分大文件、抽取复用组件并整理目录结构 |
+| `root-cause-review` | 显式调用 | 复盘修复是否建立了正确不变量并解决根因 |
+| `refactor-codebase-structure` | 显式调用 | 系统化拆分大文件、抽取复用组件并整理目录结构 |
 
 ## 验证
 
@@ -126,4 +126,4 @@ pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
 ./script/check.sh
 ```
 
-`script/check.sh` 会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 7 静态检查，并在临时 `HOME` 下验证 Pi 配置部署以及两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和陈旧链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
+`script/check.sh` 会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 7 静态检查，并在临时 `HOME` 下验证 Pi 配置部署以及两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和已删除 Skill 的受管链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
