@@ -6,10 +6,8 @@ REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/pi"
 COMMON_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
 PI_GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/pi/AGENTS.md"
-PI_DEFAULT_AGENT_SOURCE="${REPO_ROOT}/pi/agents/default.md"
 HOME_DIR="${HOME:?HOME 未设置}"
 PI_CONFIG_DIR="${PI_CODING_AGENT_DIR:-${HOME_DIR}/.pi/agent}"
-PI_DEFAULT_AGENT_TARGET="${PI_CONFIG_DIR}/agents/default.md"
 PI_SUBAGENT_CONFIG_TARGET="${PI_CONFIG_DIR}/extensions/subagent/config.json"
 CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME_DIR}/.config}"
 MAGIC_CONTEXT_TARGET="${CONFIG_HOME}/cortexkit/magic-context.jsonc"
@@ -63,7 +61,6 @@ for source in "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_
 done
 [[ -f "${COMMON_AGENTS_SOURCE}" ]] || fail "通用全局提示词源文件不存在：${COMMON_AGENTS_SOURCE}"
 [[ -f "${PI_GLOBAL_AGENTS_SOURCE}" ]] || fail "Pi 派发提示词源文件不存在：${PI_GLOBAL_AGENTS_SOURCE}"
-[[ -f "${PI_DEFAULT_AGENT_SOURCE}" ]] || fail "Pi default agent 源文件不存在：${PI_DEFAULT_AGENT_SOURCE}"
 
 # 仓库源文件禁止出现会随主机变化或包含凭据的字段。
 node - "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_SUBAGENT_CONFIG}" <<'NODE'
@@ -256,7 +253,6 @@ STAGED_MCP="${STAGED_DIR}/mcp.json"
 STAGED_MAGIC_CONTEXT="${STAGED_DIR}/magic-context.jsonc"
 STAGED_SUBAGENT_CONFIG="${STAGED_DIR}/subagent-config.json"
 STAGED_GLOBAL_AGENTS="${STAGED_DIR}/AGENTS.md"
-STAGED_DEFAULT_AGENT="${STAGED_DIR}/default.md"
 
 stage_json settings "${SOURCE_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" "${STAGED_SETTINGS}"
 stage_json models "${SOURCE_MODELS}" "${PI_CONFIG_DIR}/models.json" "${STAGED_MODELS}"
@@ -264,7 +260,6 @@ stage_json mcp "${SOURCE_MCP}" "${PI_CONFIG_DIR}/mcp.json" "${STAGED_MCP}"
 cp -- "${SOURCE_MAGIC_CONTEXT}" "${STAGED_MAGIC_CONTEXT}"
 cp -- "${SOURCE_SUBAGENT_CONFIG}" "${STAGED_SUBAGENT_CONFIG}"
 cat -- "${COMMON_AGENTS_SOURCE}" "${PI_GLOBAL_AGENTS_SOURCE}" >"${STAGED_GLOBAL_AGENTS}"
-cp -- "${PI_DEFAULT_AGENT_SOURCE}" "${STAGED_DEFAULT_AGENT}"
 
 check_file() {
   local staged=$1
@@ -338,7 +333,6 @@ if [[ "${MODE}" == "check" ]]; then
   check_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes || status=1
   check_file "${STAGED_SUBAGENT_CONFIG}" "${PI_SUBAGENT_CONFIG_TARGET}" 'Pi 子代理扩展配置' 644 || status=1
   check_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes || status=1
-  check_file "${STAGED_DEFAULT_AGENT}" "${PI_DEFAULT_AGENT_TARGET}" 'Pi default 子代理角色' 644 bytes || status=1
   if ((status == 0)); then
     printf 'Pi 配置状态一致\n'
     exit 0
@@ -354,4 +348,3 @@ install_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600
 install_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes
 install_file "${STAGED_SUBAGENT_CONFIG}" "${PI_SUBAGENT_CONFIG_TARGET}" 'Pi 子代理扩展配置' 644
 install_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes
-install_file "${STAGED_DEFAULT_AGENT}" "${PI_DEFAULT_AGENT_TARGET}" 'Pi default 子代理角色' 644 bytes

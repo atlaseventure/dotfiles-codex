@@ -38,7 +38,6 @@
 | `skills/<name>/` | `$HOME/.agents/skills/<name>` | 创建指向仓库目录的软链接 |
 | `agents/AGENTS.md` + `codex/AGENTS.md` | `$HOME/.codex/AGENTS.md` | 安装器拼接通用基座与 Codex 派发提示词后复制到 Codex 全局位置 |
 | `agents/AGENTS.md` + `pi/AGENTS.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md` | Pi 部署器拼接通用基座与 Pi 派发提示词后复制到 Pi 全局位置 |
-| `pi/agents/default.md` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/agents/default.md` | Pi 唯一允许派发的通用只读探索型子代理角色 |
 | `pi/settings.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json` | 全局 Pi 设置；`lastChangelogVersion` 保留主机值，不同步 |
 | `pi/extensions/subagent/config.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/subagent/config.json` | Pi 子代理并发与嵌套深度；整文件由仓库管理 |
 | `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头保留主机值 |
@@ -111,7 +110,7 @@ pwsh -NoProfile -File .\script\deploy-pi.ps1
 pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
 ```
 
-部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 与 `pi/AGENTS.md` 拼接后安装为 Pi 的全局上下文文件，并部署 `pi/agents/default.md` 为用户级 `default` 子代理角色。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
+部署前会生成完整临时配置，变化的目标文件会备份为唯一的 `.bak.<timestamp>` 路径。部署也会将 `agents/AGENTS.md` 与 `pi/AGENTS.md` 拼接后安装为 Pi 的全局上下文文件。`models.json` 和 `mcp.json` 中主机已有的 `baseUrl`、API key、请求头、环境变量和令牌不会被仓库覆盖；`auth.json`、`trust.json`、`models-store.json` 与 sessions 从不纳入同步。Windows 版本不设置 Unix 文件权限，并会将 MCP 配置中的 WSL `/mnt/<盘符>/...` 可执行文件路径转换为 Windows 路径。
 
 ## Skill 适用范围
 

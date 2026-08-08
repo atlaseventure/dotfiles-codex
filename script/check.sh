@@ -208,7 +208,6 @@ test_pi_deployer() {
   local mcp_target="${test_home}/.pi/agent/mcp.json"
   local subagent_target="${test_home}/.pi/agent/extensions/subagent/config.json"
   local agents_target="${test_home}/.pi/agent/AGENTS.md"
-  local default_agent_target="${test_home}/.pi/agent/agents/default.md"
 
   mkdir -p "${test_home}/.pi/agent"
   cp "${REPO_ROOT}/pi/settings.json" "${settings_target}"
@@ -252,8 +251,6 @@ NODE
     fail 'Pi 未正确安装通用与 Pi 派发提示词'
   cmp -s "${REPO_ROOT}/pi/extensions/subagent/config.json" "${subagent_target}" ||
     fail 'Pi 未正确安装子代理扩展配置'
-  cmp -s "${REPO_ROOT}/pi/agents/default.md" "${default_agent_target}" ||
-    fail 'Pi 未正确安装 default 子代理角色'
 
   node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
 const fs = require("node:fs");
@@ -286,7 +283,6 @@ test_pi_deployer_powershell() {
   local mcp_target="${test_home}/.pi/agent/mcp.json"
   local subagent_target="${test_home}/.pi/agent/extensions/subagent/config.json"
   local agents_target="${test_home}/.pi/agent/AGENTS.md"
-  local default_agent_target="${test_home}/.pi/agent/agents/default.md"
   local command_home
   local pi_config_dir
   local config_home
@@ -346,8 +342,6 @@ NODE
     fail 'PowerShell Pi 未正确安装通用与 Pi 派发提示词'
   cmp -s "${REPO_ROOT}/pi/extensions/subagent/config.json" "${subagent_target}" ||
     fail 'PowerShell Pi 未正确安装子代理扩展配置'
-  cmp -s "${REPO_ROOT}/pi/agents/default.md" "${default_agent_target}" ||
-    fail 'PowerShell Pi 未正确安装 default 子代理角色'
 
   node - "${settings_target}" "${models_target}" "${mcp_target}" <<'NODE'
 const fs = require("node:fs");
