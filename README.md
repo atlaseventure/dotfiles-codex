@@ -13,7 +13,6 @@
 - `script/deploy-pi.ps1`：使用 PowerShell 7 将仓库中的非敏感 Pi 配置部署到 Windows 主机
 - `script/install.ps1`：Windows PowerShell 安装入口
 - `script/validate-skills.py`：仓库内 Skill 契约校验器
-- `script/check.sh`：本仓库唯一检查入口
 
 ## 提示词编排
 
@@ -122,8 +121,14 @@ pwsh -NoProfile -File .\script\deploy-pi.ps1 -Check
 
 ## 验证
 
+验证 Skill 契约：
+
 ```bash
-./script/check.sh
+python3 script/validate-skills.py
 ```
 
-`script/check.sh` 会使用仓库内校验器验证全部 Skill 及其调用策略，执行 Shell 和 PowerShell 7 静态检查，并在临时 `HOME` 下验证 Pi 配置部署以及两个安装器的只读漂移检查、首次安装、重复安装、冲突备份和已删除 Skill 的受管链接清理行为。CI 在 Linux 和 Windows 上调用同一个入口。
+验证 Shell 脚本语法：
+
+```bash
+bash -n script/install.sh script/deploy-pi.sh
+```
