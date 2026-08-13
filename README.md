@@ -37,6 +37,7 @@
 | `pi/models.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/models.json` | 模型元数据；`baseUrl`、`apiKey` 和请求头以主机值为准 |
 | `pi/mcp.json` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/mcp.json` | MCP 服务定义；环境变量、请求头和令牌以主机值为准 |
 | `pi/cortexkit/magic-context.jsonc` | `${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc` | Magic Context 用户配置 |
+| `pi/extensions/gpt-responses-fix.ts` | `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/gpt-responses-fix.ts` | Pi GPT Responses 请求修正扩展 |
 
 `codex/config.toml.example` 作为配置示例，按需合并到 `$HOME/.codex/config.toml`；用户环境和认证相关值以主机配置为准。
 

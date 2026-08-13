@@ -52,11 +52,13 @@ SOURCE_SETTINGS="${SOURCE_DIR}/settings.json"
 SOURCE_MODELS="${SOURCE_DIR}/models.json"
 SOURCE_MCP="${SOURCE_DIR}/mcp.json"
 SOURCE_MAGIC_CONTEXT="${SOURCE_DIR}/cortexkit/magic-context.jsonc"
+SOURCE_GPT_RESPONSES_FIX="${SOURCE_DIR}/extensions/gpt-responses-fix.ts"
 
 for source in "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" "${SOURCE_MAGIC_CONTEXT}"; do
   [[ -f "${source}" ]] || fail "仓库配置文件不存在：${source}"
 done
 [[ -f "${GLOBAL_AGENTS_SOURCE}" ]] || fail "共享全局提示词源文件不存在：${GLOBAL_AGENTS_SOURCE}"
+[[ -f "${SOURCE_GPT_RESPONSES_FIX}" ]] || fail "仓库 Pi 扩展不存在：${SOURCE_GPT_RESPONSES_FIX}"
 
 # 仓库源文件禁止出现会随主机变化或包含凭据的字段。
 node - "${SOURCE_SETTINGS}" "${SOURCE_MODELS}" "${SOURCE_MCP}" <<'NODE'
@@ -248,12 +250,14 @@ STAGED_MODELS="${STAGED_DIR}/models.json"
 STAGED_MCP="${STAGED_DIR}/mcp.json"
 STAGED_MAGIC_CONTEXT="${STAGED_DIR}/magic-context.jsonc"
 STAGED_GLOBAL_AGENTS="${STAGED_DIR}/AGENTS.md"
+STAGED_GPT_RESPONSES_FIX="${STAGED_DIR}/gpt-responses-fix.ts"
 
 stage_json settings "${SOURCE_SETTINGS}" "${PI_CONFIG_DIR}/settings.json" "${STAGED_SETTINGS}"
 stage_json models "${SOURCE_MODELS}" "${PI_CONFIG_DIR}/models.json" "${STAGED_MODELS}"
 stage_json mcp "${SOURCE_MCP}" "${PI_CONFIG_DIR}/mcp.json" "${STAGED_MCP}"
 cp -- "${SOURCE_MAGIC_CONTEXT}" "${STAGED_MAGIC_CONTEXT}"
 cp -- "${GLOBAL_AGENTS_SOURCE}" "${STAGED_GLOBAL_AGENTS}"
+cp -- "${SOURCE_GPT_RESPONSES_FIX}" "${STAGED_GPT_RESPONSES_FIX}"
 
 check_file() {
   local staged=$1
@@ -326,6 +330,7 @@ if [[ "${MODE}" == "check" ]]; then
   check_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600 || status=1
   check_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes || status=1
   check_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes || status=1
+  check_file "${STAGED_GPT_RESPONSES_FIX}" "${PI_CONFIG_DIR}/extensions/gpt-responses-fix.ts" 'Pi gpt-responses-fix 扩展' 644 bytes || status=1
   if ((status == 0)); then
     printf 'Pi 配置状态一致\n'
     exit 0
@@ -340,3 +345,4 @@ install_file "${STAGED_MODELS}" "${PI_CONFIG_DIR}/models.json" 'Pi models.json' 
 install_file "${STAGED_MCP}" "${PI_CONFIG_DIR}/mcp.json" 'Pi MCP 配置' 600
 install_file "${STAGED_MAGIC_CONTEXT}" "${MAGIC_CONTEXT_TARGET}" 'Magic Context 配置' 644 bytes
 install_file "${STAGED_GLOBAL_AGENTS}" "${PI_CONFIG_DIR}/AGENTS.md" 'Pi 全局提示词' 644 bytes
+install_file "${STAGED_GPT_RESPONSES_FIX}" "${PI_CONFIG_DIR}/extensions/gpt-responses-fix.ts" 'Pi gpt-responses-fix 扩展' 644 bytes

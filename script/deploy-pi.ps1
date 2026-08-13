@@ -33,6 +33,7 @@ $sourceSettings = Join-Path $sourceDir 'settings.json'
 $sourceModels = Join-Path $sourceDir 'models.json'
 $sourceMcp = Join-Path $sourceDir 'mcp.json'
 $sourceMagicContext = Join-Path $sourceDir 'cortexkit\magic-context.jsonc'
+$sourceGptResponsesFix = Join-Path $sourceDir 'extensions\gpt-responses-fix.ts'
 $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
 $forbiddenKeyPattern = [regex]::new(
     '^(baseUrl|apiKey|api_key|headers|bearerToken|bearerTokenEnv|clientSecret|password|secret|token)$',
@@ -584,17 +585,23 @@ try {
         throw "共享全局提示词源文件不存在：$globalAgentsSource"
     }
 
+    if (-not (Test-Path -LiteralPath $sourceGptResponsesFix -PathType Leaf)) {
+        throw "仓库 Pi 扩展不存在：$sourceGptResponsesFix"
+    }
+
     $stagedSettings = Join-Path $stagedDir 'settings.json'
     $stagedModels = Join-Path $stagedDir 'models.json'
     $stagedMcp = Join-Path $stagedDir 'mcp.json'
     $stagedMagicContext = Join-Path $stagedDir 'magic-context.jsonc'
     $stagedGlobalAgents = Join-Path $stagedDir 'AGENTS.md'
+    $stagedGptResponsesFix = Join-Path $stagedDir 'gpt-responses-fix.ts'
 
     Write-StagedJson -Kind settings -SourcePath $sourceSettings -TargetPath (Join-Path $piConfigDir 'settings.json') -StagedPath $stagedSettings
     Write-StagedJson -Kind models -SourcePath $sourceModels -TargetPath (Join-Path $piConfigDir 'models.json') -StagedPath $stagedModels
     Write-StagedJson -Kind mcp -SourcePath $sourceMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -StagedPath $stagedMcp
     Copy-Item -LiteralPath $sourceMagicContext -Destination $stagedMagicContext
     Copy-Item -LiteralPath $globalAgentsSource -Destination $stagedGlobalAgents
+    Copy-Item -LiteralPath $sourceGptResponsesFix -Destination $stagedGptResponsesFix
 
     if ($Check) {
         $status = 0
@@ -613,6 +620,9 @@ try {
         if (-not (Test-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent)) {
             $status = 1
         }
+        if (-not (Test-ManagedFile -StagedPath $stagedGptResponsesFix -TargetPath (Join-Path $piConfigDir 'extensions\gpt-responses-fix.ts') -Description 'Pi gpt-responses-fix 扩展' -ByteContent)) {
+            $status = 1
+        }
 
         if ($status -eq 0) {
             Write-Information 'Pi 配置状态一致' -InformationAction Continue
@@ -628,6 +638,7 @@ try {
     Install-ManagedFile -StagedPath $stagedMcp -TargetPath (Join-Path $piConfigDir 'mcp.json') -Description 'Pi MCP 配置'
     Install-ManagedFile -StagedPath $stagedMagicContext -TargetPath $magicContextTarget -Description 'Magic Context 配置' -ByteContent
     Install-ManagedFile -StagedPath $stagedGlobalAgents -TargetPath (Join-Path $piConfigDir 'AGENTS.md') -Description 'Pi 全局提示词' -ByteContent
+    Install-ManagedFile -StagedPath $stagedGptResponsesFix -TargetPath (Join-Path $piConfigDir 'extensions\gpt-responses-fix.ts') -Description 'Pi gpt-responses-fix 扩展' -ByteContent
 }
 finally {
     if ($stagedReady -and (Test-Path -LiteralPath $stagedDir)) {
