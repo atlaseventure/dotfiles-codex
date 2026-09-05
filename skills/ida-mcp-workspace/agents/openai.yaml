@@ -4,7 +4,7 @@ interface:
   default_prompt: "使用 $ida-mcp-workspace 为 IDA MCP 分析准备这个二进制文件。"
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
 
 platform:
   unix: true
