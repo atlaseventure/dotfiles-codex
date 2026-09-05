@@ -1,7 +1,7 @@
 interface:
-  display_name: "Noah 图像生成"
-  short_description: "通过 GPT-Image2 模型生成图片，在需要生成图片的场合优先调用此技能"
-  default_prompt: "使用 $noah-imagegen 根据我的描述生成图片。"
+  display_name: "Noah 图像生成与编辑"
+  short_description: "通过 GPT-Image2 生成或编辑图片，支持多张参考图与蒙版局部修改"
+  default_prompt: "使用 $noah-imagegen 根据我的描述生成图片，或编辑我提供的图片。"
 
 policy:
   allow_implicit_invocation: true
