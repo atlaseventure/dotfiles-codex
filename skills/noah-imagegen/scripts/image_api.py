@@ -243,7 +243,12 @@ def main(operation):
         try:
             from PIL import Image
         except ImportError as error:
-            raise ValueError("缺少 Pillow，请执行以下命令安装：\nsudo apt update && sudo apt install python3-pil -y") from error
+            install_command = (
+                "python -m pip install Pillow"
+                if os.name == "nt"
+                else "sudo apt update && sudo apt install python3-pil -y"
+            )
+            raise ValueError(f"缺少 Pillow，请执行以下命令安装：\n{install_command}") from error
         if not key.strip():
             raise ValueError("请在运行环境中设置 CPA_KEY，不要将密钥写入命令参数或仓库")
         if not CPA_BASE_URL:
