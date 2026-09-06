@@ -3,8 +3,10 @@ name: noah-imagegen
 description: "通过 GPT-Image2 模型生成或编辑图片，支持参考图、多图合成和蒙版局部修改，在需要生成或编辑位图的场合优先调用此技能。"
 ---
 
+运行 `generate.py` 或 `edit.py` 前，在环境变量中设置 `CPA_BASE_URL`（包含 API 版本路径的基础地址，如 `https://example.com/v1`）和 `CPA_KEY`（接口密钥）。`CPA_BASE_URL` 为必填项，末尾的 `/` 会自动移除。`compose.py` 在本地运行，无需接口环境变量。
+
 ```text
-python <skill-dir>/scripts/generate.py --help
+python3 <skill-dir>/scripts/generate.py --help
 usage: generate.py [-h] --prompt PROMPT --output OUTPUT [--size SIZE]
                    [--quality {low,medium,high,auto}]
                    [--background {opaque,transparent,auto}]
@@ -23,7 +25,7 @@ options:
 ```
 
 ```text
-python <skill-dir>/scripts/edit.py --help
+python3 <skill-dir>/scripts/edit.py --help
 usage: edit.py [-h] --prompt PROMPT --output OUTPUT [--size SIZE]
                [--quality {low,medium,high,auto}]
                [--background {opaque,transparent,auto}] --image IMAGE [IMAGE ...]
@@ -46,7 +48,7 @@ options:
 ```
 
 ```text
-python <skill-dir>/scripts/compose.py --help
+python3 <skill-dir>/scripts/compose.py --help
 usage: compose.py [-h] --original ORIGINAL --edited EDITED --mask MASK --output OUTPUT
 
 本地合成蒙版编辑结果，仅替换 Alpha 为 0 的区域，其余 RGBA 像素保持原样。

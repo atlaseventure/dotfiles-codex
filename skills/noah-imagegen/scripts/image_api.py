@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-BASE_URL = "https://noah.atlasmeta.one:8700/v1"
+CPA_BASE_URL = os.environ.get("CPA_BASE_URL", "").strip().rstrip("/")
 TIMEOUT = 300
 DEFAULT_SIZE = "1254x1254"
 REQUEST_OPTIONS = {
@@ -175,7 +175,7 @@ def edit(payload, paths, mask, key, timeout, image_module):
 
 def send_request(endpoint, data, content_type, key, timeout):
     request = urllib.request.Request(
-        f"{BASE_URL}/{endpoint}", data=data,
+        f"{CPA_BASE_URL}/{endpoint}", data=data,
         headers={"Authorization": f"Bearer {key}", "Content-Type": content_type,
                  "Accept": "application/json"}, method="POST",
     )
@@ -243,9 +243,11 @@ def main(operation):
         try:
             from PIL import Image
         except ImportError as error:
-            raise ValueError("缺少 Pillow，请在当前 Python 环境安装：python3 -m pip install Pillow") from error
+            raise ValueError("缺少 Pillow，请执行以下命令安装：\nsudo apt update && sudo apt install python3-pil -y") from error
         if not key.strip():
             raise ValueError("请在运行环境中设置 CPA_KEY，不要将密钥写入命令参数或仓库")
+        if not CPA_BASE_URL:
+            raise ValueError("请在运行环境中设置 CPA_BASE_URL，填写包含 API 版本路径的基础地址（如 https://example.com/v1）")
         payload = payload_for(args)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         if operation == "edit":

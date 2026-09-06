@@ -42,7 +42,7 @@ def compose_files(original_path, edited_path, mask_path, output_path):
     try:
         from PIL import Image, ImageChops
     except ImportError as error:
-        raise ValueError("缺少 Pillow，请在当前 Python 环境安装：python3 -m pip install Pillow") from error
+        raise ValueError("缺少 Pillow，请执行以下命令安装：\nsudo apt update\nsudo apt install python3-pil") from error
 
     original, profile = load_picture(original_path, Image)
     edited, _ = load_picture(edited_path, Image)
