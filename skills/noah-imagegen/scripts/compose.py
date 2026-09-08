@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import sys
 
-from image_api import read_image
+from image_api import configure_utf8_output, read_image
 
 
 def arguments():
@@ -85,6 +85,7 @@ def compose_files(original_path, edited_path, mask_path, output_path):
 
 
 def main():
+    configure_utf8_output()
     args = arguments()
     try:
         compose_files(args.original, args.edited, args.mask, args.output)

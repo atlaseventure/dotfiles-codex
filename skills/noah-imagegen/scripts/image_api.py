@@ -25,6 +25,14 @@ REQUEST_OPTIONS = {
 }
 
 
+def configure_utf8_output():
+    """统一命令行输出编码，使 Windows 管道和日志中的中文保持可读。"""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     """图像请求不跟随重定向，防止凭据被转发到其他地址。"""
 
@@ -230,6 +238,7 @@ def extract(raw, timeout, image_module):
 
 
 def main(operation):
+    configure_utf8_output()
     args = arguments(operation)
     key = os.environ.get("CPA_KEY", "")
     try:
