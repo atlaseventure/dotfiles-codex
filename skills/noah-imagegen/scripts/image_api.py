@@ -20,7 +20,7 @@ CPA_BASE_URL = os.environ.get("CPA_BASE_URL", "").strip().rstrip("/")
 TIMEOUT = 300
 DEFAULT_SIZE = "1254x1254"
 REQUEST_OPTIONS = {
-    "model": "gpt-image-2", "n": 1, "size": DEFAULT_SIZE, "quality": "high",
+    "model": "gpt-image-2.5-sunburst", "n": 1, "size": DEFAULT_SIZE, "quality": "high",
     "background": "auto", "output_format": "png", "moderation": "low", "stream": False,
 }
 
