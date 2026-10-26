@@ -8,7 +8,6 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'skills'
-$globalAgentsSource = Join-Path $repoRoot 'agents\AGENTS.md'
 
 if ([string]::IsNullOrWhiteSpace($HOME)) {
     throw 'HOME 未设置'
@@ -18,15 +17,29 @@ if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
     throw "Skill 源目录不存在：$sourceDir"
 }
 
-if (-not (Test-Path -LiteralPath $globalAgentsSource -PathType Leaf)) {
-    throw "共享全局提示词源文件不存在：$globalAgentsSource"
+$sourceDir = (Resolve-Path -LiteralPath $sourceDir).Path
+$skillTargetDirs = @(
+    (Join-Path $HOME '.agents\skills')
+    (Join-Path $HOME '.claude\skills')
+)
+$globalAgentsFiles = @(
+    @{
+        Source = Join-Path $repoRoot 'agents\AGENTS.md'
+        Destination = Join-Path $HOME '.codex\AGENTS.md'
+    }
+    @{
+        Source = Join-Path $repoRoot 'agents\CLAUDE.md'
+        Destination = Join-Path $HOME '.claude\CLAUDE.md'
+    }
+)
+
+foreach ($file in $globalAgentsFiles) {
+    if (-not (Test-Path -LiteralPath $file.Source -PathType Leaf)) {
+        throw "全局提示词源文件不存在：$($file.Source)"
+    }
+    $file.Source = (Resolve-Path -LiteralPath $file.Source).Path
 }
 
-$sourceDir = (Resolve-Path -LiteralPath $sourceDir).Path
-$globalAgentsSource = (Resolve-Path -LiteralPath $globalAgentsSource).Path
-$targetDir = Join-Path $HOME '.agents\skills'
-$codexTargetDir = Join-Path $HOME '.codex'
-$codexAgentsTarget = Join-Path $codexTargetDir 'AGENTS.md'
 $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
 $isWindowsPlatform = $env:OS -eq 'Windows_NT'
 $platform = if ($isWindowsPlatform) { 'windows' } else { 'unix' }
@@ -129,7 +142,10 @@ function Install-Skill {
 
 function Remove-StaleManagedLink {
     [CmdletBinding(SupportsShouldProcess)]
-    param()
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetDir
+    )
 
     $sourcePrefix = $sourceDir.TrimEnd(
         [System.IO.Path]::DirectorySeparatorChar,
@@ -148,7 +164,7 @@ function Remove-StaleManagedLink {
             -not (Test-Path -LiteralPath $linkTarget)
         ) {
             if ($PSCmdlet.ShouldProcess($item.FullName, '移除陈旧 Skill 链接')) {
-                Remove-Item -LiteralPath $item.FullName -Force
+                Remove-Item -LiteralPath $item.FullName
                 Write-Output "已移除陈旧 Skill 链接：$($item.FullName)"
             }
         }
@@ -156,23 +172,31 @@ function Remove-StaleManagedLink {
 }
 
 function Install-GlobalAgentsFile {
-    $existing = Get-Item -LiteralPath $codexAgentsTarget -Force -ErrorAction SilentlyContinue
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Source,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Destination
+    )
+
+    $existing = Get-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
     if ($null -ne $existing) {
         $unchanged = -not (Test-IsLinkLike -Item $existing) -and
             -not $existing.PSIsContainer -and
-            (Get-FileHash -LiteralPath $globalAgentsSource -Algorithm SHA256).Hash -eq
-            (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
+            (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash
 
         if ($unchanged) {
-            Write-Output "共享全局提示词已是最新状态：$codexAgentsTarget"
+            Write-Output "全局提示词已是最新状态：$Destination"
             return
         }
 
-        Backup-Item -Path $codexAgentsTarget
+        Backup-Item -Path $Destination
     }
 
-    Copy-Item -LiteralPath $globalAgentsSource -Destination $codexAgentsTarget
-    Write-Output "已复制 $codexAgentsTarget <- $globalAgentsSource"
+    Copy-Item -LiteralPath $Source -Destination $Destination
+    Write-Output "已复制 $Destination <- $Source"
 }
 
 function Test-SkillSupportsPlatform {
@@ -213,63 +237,68 @@ function Get-InstallableSkill {
 
 function Test-Installation {
     $consistent = $true
+    $sources = Get-InstallableSkill
 
-    foreach ($source in Get-InstallableSkill) {
-        $destination = Join-Path $targetDir $source.Name
-        $existing = Get-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
-        $current = $false
+    foreach ($targetDir in $skillTargetDirs) {
+        foreach ($source in $sources) {
+            $destination = Join-Path $targetDir $source.Name
+            $existing = Get-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
+            $current = $false
 
-        if ($null -ne $existing -and (Test-IsLinkLike -Item $existing)) {
-            $currentTarget = Get-NormalizedLinkTarget -Item $existing -LinkPath $destination
-            $current = $null -ne $currentTarget -and
-                $currentTarget.Equals($source.FullName, $pathComparison)
-        }
-
-        if ($current) {
-            Write-Information "Skill 状态一致：$destination" -InformationAction Continue
-        }
-        else {
-            Write-Warning "Skill 状态不一致：$destination 应链接到 $($source.FullName)"
-            $consistent = $false
-        }
-    }
-
-    if (Test-Path -LiteralPath $targetDir -PathType Container) {
-        $sourcePrefix = $sourceDir.TrimEnd(
-            [System.IO.Path]::DirectorySeparatorChar,
-            [System.IO.Path]::AltDirectorySeparatorChar
-        ) + [System.IO.Path]::DirectorySeparatorChar
-
-        foreach ($item in Get-ChildItem -LiteralPath $targetDir -Force) {
-            if (-not (Test-IsLinkLike -Item $item)) {
-                continue
+            if ($null -ne $existing -and (Test-IsLinkLike -Item $existing)) {
+                $currentTarget = Get-NormalizedLinkTarget -Item $existing -LinkPath $destination
+                $current = $null -ne $currentTarget -and
+                    $currentTarget.Equals($source.FullName, $pathComparison)
             }
 
-            $linkTarget = Get-NormalizedLinkTarget -Item $item -LinkPath $item.FullName
-            if (
-                $null -ne $linkTarget -and
-                $linkTarget.StartsWith($sourcePrefix, $pathComparison) -and
-                -not (Test-Path -LiteralPath $linkTarget)
-            ) {
-                Write-Warning "存在陈旧 Skill 链接：$($item.FullName) -> $linkTarget"
+            if ($current) {
+                Write-Information "Skill 状态一致：$destination" -InformationAction Continue
+            }
+            else {
+                Write-Warning "Skill 状态不一致：$destination 应链接到 $($source.FullName)"
                 $consistent = $false
             }
         }
+
+        if (Test-Path -LiteralPath $targetDir -PathType Container) {
+            $sourcePrefix = $sourceDir.TrimEnd(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            ) + [System.IO.Path]::DirectorySeparatorChar
+
+            foreach ($item in Get-ChildItem -LiteralPath $targetDir -Force) {
+                if (-not (Test-IsLinkLike -Item $item)) {
+                    continue
+                }
+
+                $linkTarget = Get-NormalizedLinkTarget -Item $item -LinkPath $item.FullName
+                if (
+                    $null -ne $linkTarget -and
+                    $linkTarget.StartsWith($sourcePrefix, $pathComparison) -and
+                    -not (Test-Path -LiteralPath $linkTarget)
+                ) {
+                    Write-Warning "存在陈旧 Skill 链接：$($item.FullName) -> $linkTarget"
+                    $consistent = $false
+                }
+            }
+        }
     }
 
-    $agentsExisting = Get-Item -LiteralPath $codexAgentsTarget -Force -ErrorAction SilentlyContinue
-    $agentsCurrent = $null -ne $agentsExisting -and
-        -not (Test-IsLinkLike -Item $agentsExisting) -and
-        -not $agentsExisting.PSIsContainer -and
-        (Get-FileHash -LiteralPath $globalAgentsSource -Algorithm SHA256).Hash -eq
-        (Get-FileHash -LiteralPath $codexAgentsTarget -Algorithm SHA256).Hash
+    foreach ($file in $globalAgentsFiles) {
+        $agentsExisting = Get-Item -LiteralPath $file.Destination -Force -ErrorAction SilentlyContinue
+        $agentsCurrent = $null -ne $agentsExisting -and
+            -not (Test-IsLinkLike -Item $agentsExisting) -and
+            -not $agentsExisting.PSIsContainer -and
+            (Get-FileHash -LiteralPath $file.Source -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $file.Destination -Algorithm SHA256).Hash
 
-    if ($agentsCurrent) {
-        Write-Information "共享全局提示词状态一致：$codexAgentsTarget" -InformationAction Continue
-    }
-    else {
-        Write-Warning "共享全局提示词状态不一致：$codexAgentsTarget"
-        $consistent = $false
+        if ($agentsCurrent) {
+            Write-Information "全局提示词状态一致：$($file.Destination)" -InformationAction Continue
+        }
+        else {
+            Write-Warning "全局提示词状态不一致：$($file.Destination)"
+            $consistent = $false
+        }
     }
 
     if ($consistent) {
@@ -289,12 +318,18 @@ if ($Check) {
     exit 1
 }
 
-New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-New-Item -ItemType Directory -Path $codexTargetDir -Force | Out-Null
+$sources = Get-InstallableSkill
+foreach ($targetDir in $skillTargetDirs) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 
-foreach ($source in Get-InstallableSkill) {
-    Install-Skill -Source $source -Destination (Join-Path $targetDir $source.Name)
+    foreach ($source in $sources) {
+        Install-Skill -Source $source -Destination (Join-Path $targetDir $source.Name)
+    }
+
+    Remove-StaleManagedLink -TargetDir $targetDir
 }
 
-Remove-StaleManagedLink
-Install-GlobalAgentsFile
+foreach ($file in $globalAgentsFiles) {
+    New-Item -ItemType Directory -Path (Split-Path -Parent $file.Destination) -Force | Out-Null
+    Install-GlobalAgentsFile -Source $file.Source -Destination $file.Destination
+}

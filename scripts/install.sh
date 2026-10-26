@@ -5,9 +5,12 @@ SCRIPT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "${SCRIPT_DIR}")
 SOURCE_DIR="${REPO_ROOT}/skills"
 GLOBAL_AGENTS_SOURCE="${REPO_ROOT}/agents/AGENTS.md"
-TARGET_DIR="${HOME:?HOME 未设置}/.agents/skills"
+GLOBAL_CLAUDE_SOURCE="${REPO_ROOT}/agents/CLAUDE.md"
+SKILL_TARGET_DIRS=("${HOME:?HOME 未设置}/.agents/skills" "${HOME}/.claude/skills")
 CODEX_TARGET_DIR="${HOME}/.codex"
 CODEX_AGENTS_TARGET="${CODEX_TARGET_DIR}/AGENTS.md"
+CLAUDE_TARGET_DIR="${HOME}/.claude"
+CLAUDE_AGENTS_TARGET="${CLAUDE_TARGET_DIR}/CLAUDE.md"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
 MODE=install
 PLATFORM=unix
@@ -31,10 +34,12 @@ if [[ ! -d "${SOURCE_DIR}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${GLOBAL_AGENTS_SOURCE}" ]]; then
-  printf '共享全局提示词源文件不存在：%s\n' "${GLOBAL_AGENTS_SOURCE}" >&2
-  exit 1
-fi
+for source in "${GLOBAL_AGENTS_SOURCE}" "${GLOBAL_CLAUDE_SOURCE}"; do
+  if [[ ! -f "${source}" ]]; then
+    printf '全局提示词源文件不存在：%s\n' "${source}" >&2
+    exit 1
+  fi
+done
 
 unique_backup_path() {
   local base=$1
@@ -105,11 +110,12 @@ skill_supports_platform() {
 }
 
 remove_stale_managed_links() {
+  local target_dir=$1
   local destination
   local link_target
 
   shopt -s nullglob
-  for destination in "${TARGET_DIR}"/*; do
+  for destination in "${target_dir}"/*; do
     [[ -L "${destination}" ]] || continue
     link_target=$(readlink "${destination}")
     if [[ "${link_target}" == "${SOURCE_DIR}/"* && ! -e "${link_target}" ]]; then
@@ -121,17 +127,20 @@ remove_stale_managed_links() {
 }
 
 install_global_agents() {
-  if [[ -L "${CODEX_AGENTS_TARGET}" || -e "${CODEX_AGENTS_TARGET}" ]]; then
-    if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
-      cmp -s "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
-      printf '共享全局提示词已是最新状态：%s\n' "${CODEX_AGENTS_TARGET}"
+  local source=$1
+  local destination=$2
+
+  if [[ -L "${destination}" || -e "${destination}" ]]; then
+    if [[ ! -L "${destination}" && -f "${destination}" ]] &&
+      cmp -s "${source}" "${destination}"; then
+      printf '全局提示词已是最新状态：%s\n' "${destination}"
       return
     fi
-    backup_item "${CODEX_AGENTS_TARGET}"
+    backup_item "${destination}"
   fi
 
-  cp "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"
-  printf '已复制 %s <- %s\n' "${CODEX_AGENTS_TARGET}" "${GLOBAL_AGENTS_SOURCE}"
+  cp "${source}" "${destination}"
+  printf '已复制 %s <- %s\n' "${destination}" "${source}"
 }
 
 check_skill() {
@@ -148,14 +157,15 @@ check_skill() {
 }
 
 check_stale_managed_links() {
+  local target_dir=$1
   local destination
   local link_target
   local status=0
 
-  [[ -d "${TARGET_DIR}" ]] || return 0
+  [[ -d "${target_dir}" ]] || return 0
 
   shopt -s nullglob
-  for destination in "${TARGET_DIR}"/*; do
+  for destination in "${target_dir}"/*; do
     [[ -L "${destination}" ]] || continue
     link_target=$(readlink "${destination}")
     if [[ "${link_target}" == "${SOURCE_DIR}/"* && ! -e "${link_target}" ]]; then
@@ -169,18 +179,22 @@ check_stale_managed_links() {
 }
 
 check_global_agents() {
-  if [[ ! -L "${CODEX_AGENTS_TARGET}" && -f "${CODEX_AGENTS_TARGET}" ]] &&
-    cmp -s "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
-    printf '共享全局提示词状态一致：%s\n' "${CODEX_AGENTS_TARGET}"
+  local source=$1
+  local destination=$2
+
+  if [[ ! -L "${destination}" && -f "${destination}" ]] &&
+    cmp -s "${source}" "${destination}"; then
+    printf '全局提示词状态一致：%s\n' "${destination}"
     return 0
   fi
 
-  printf '共享全局提示词状态不一致：%s\n' "${CODEX_AGENTS_TARGET}" >&2
+  printf '全局提示词状态不一致：%s\n' "${destination}" >&2
   return 1
 }
 
 check_installation() {
   local source
+  local target_dir
   local status=0
 
   shopt -s nullglob
@@ -189,16 +203,23 @@ check_installation() {
     if ! skill_supports_platform "${source}" "${PLATFORM}"; then
       continue
     fi
-    if ! check_skill "${source}" "${TARGET_DIR}/$(basename "${source}")"; then
-      status=1
-    fi
+    for target_dir in "${SKILL_TARGET_DIRS[@]}"; do
+      if ! check_skill "${source}" "${target_dir}/$(basename "${source}")"; then
+        status=1
+      fi
+    done
   done
   shopt -u nullglob
 
-  if ! check_stale_managed_links; then
+  for target_dir in "${SKILL_TARGET_DIRS[@]}"; do
+    if ! check_stale_managed_links "${target_dir}"; then
+      status=1
+    fi
+  done
+  if ! check_global_agents "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"; then
     status=1
   fi
-  if ! check_global_agents; then
+  if ! check_global_agents "${GLOBAL_CLAUDE_SOURCE}" "${CLAUDE_AGENTS_TARGET}"; then
     status=1
   fi
 
@@ -218,7 +239,7 @@ if [[ "${MODE}" == "check" ]]; then
   exit 1
 fi
 
-mkdir -p "${TARGET_DIR}" "${CODEX_TARGET_DIR}"
+mkdir -p "${SKILL_TARGET_DIRS[@]}" "${CODEX_TARGET_DIR}" "${CLAUDE_TARGET_DIR}"
 
 shopt -s nullglob
 for source in "${SOURCE_DIR}"/*; do
@@ -226,9 +247,14 @@ for source in "${SOURCE_DIR}"/*; do
   if ! skill_supports_platform "${source}" "${PLATFORM}"; then
     continue
   fi
-  install_skill "${source}" "${TARGET_DIR}/$(basename "${source}")"
+  for target_dir in "${SKILL_TARGET_DIRS[@]}"; do
+    install_skill "${source}" "${target_dir}/$(basename "${source}")"
+  done
 done
 shopt -u nullglob
 
-remove_stale_managed_links
-install_global_agents
+for target_dir in "${SKILL_TARGET_DIRS[@]}"; do
+  remove_stale_managed_links "${target_dir}"
+done
+install_global_agents "${GLOBAL_AGENTS_SOURCE}" "${CODEX_AGENTS_TARGET}"
+install_global_agents "${GLOBAL_CLAUDE_SOURCE}" "${CLAUDE_AGENTS_TARGET}"
