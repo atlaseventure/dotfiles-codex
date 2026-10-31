@@ -1,7 +1,9 @@
 interface:
-  display_name: "Noah 图像生成与编辑"
-  short_description: "通过 GPT-Image2.5 生成或编辑图片，支持多张参考图与蒙版局部修改"
-  default_prompt: "使用 $noah-imagegen 根据我的描述生成图片，或编辑我提供的图片。"
+  display_name: "Noah Imagegen"
+  short_description: "通过 CLI/API 生成、编辑与批量制作图片"
+  icon_small: "./assets/imagegen-small.svg"
+  icon_large: "./assets/imagegen.png"
+  default_prompt: "使用 $noah-imagegen 生成或编辑此项目需要的图片。"
 
 policy:
   allow_implicit_invocation: true
