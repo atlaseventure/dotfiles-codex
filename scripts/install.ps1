@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
-    [switch]$Check
+    [switch]$Check,
+    [switch]$NoBackup
 )
 
 Set-StrictMode -Version Latest
@@ -24,14 +25,16 @@ $skillTargetDirs = @(
 )
 $globalAgentsFiles = @(
     @{
-        Source = Join-Path $repoRoot 'agents\AGENTS.md'
+        Source = Join-Path $repoRoot 'codex\AGENTS.md'
         Destination = Join-Path $HOME '.codex\AGENTS.md'
     }
     @{
-        Source = Join-Path $repoRoot 'agents\CLAUDE.md'
+        Source = Join-Path $repoRoot 'claude\CLAUDE.md'
         Destination = Join-Path $HOME '.claude\CLAUDE.md'
     }
 )
+$settingsSource = Join-Path $repoRoot 'claude\settings.json'
+$settingsDestination = Join-Path $HOME '.claude\settings.json'
 
 foreach ($file in $globalAgentsFiles) {
     if (-not (Test-Path -LiteralPath $file.Source -PathType Leaf)) {
@@ -102,6 +105,12 @@ function Backup-Item {
         [Parameter(Mandatory = $true)]
         [string]$Path
     )
+
+    if ($NoBackup) {
+        Remove-Item -LiteralPath $Path
+        Write-Output "已直接移除冲突项：$Path"
+        return
+    }
 
     $backup = Get-UniqueBackupPath -Path $Path
     Move-Item -LiteralPath $Path -Destination $backup
@@ -197,6 +206,139 @@ function Install-GlobalAgentsFile {
 
     Copy-Item -LiteralPath $Source -Destination $Destination
     Write-Output "已复制 $Destination <- $Source"
+}
+
+function Read-JsonObject {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    try {
+        $value = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable -Depth 100
+    }
+    catch {
+        throw "JSON 配置无效：$Path。$($_.Exception.Message)"
+    }
+
+    if ($value -isnot [System.Collections.IDictionary]) {
+        throw "JSON 配置根节点必须是对象：$Path"
+    }
+
+    return $value
+}
+
+function Merge-JsonObject {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Target,
+
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Source,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [ref]$Changed
+    )
+
+    foreach ($key in $Source.Keys) {
+        $propertyPath = "$Path.$key"
+        if (-not $Target.Contains($key)) {
+            $Target[$key] = $Source[$key]
+            $Changed.Value = $true
+            continue
+        }
+
+        $sourceValue = $Source[$key]
+        $targetValue = $Target[$key]
+        if ($sourceValue -is [System.Collections.IDictionary] -and
+            $targetValue -is [System.Collections.IDictionary]) {
+            Merge-JsonObject -Target $targetValue -Source $sourceValue -Path $propertyPath -Changed $Changed
+        }
+        elseif (-not (Test-JsonValueEqual -Left $targetValue -Right $sourceValue)) {
+            $Target[$key] = $sourceValue
+            $Changed.Value = $true
+        }
+    }
+}
+
+function Test-JsonValueEqual {
+    param(
+        [Parameter(Mandatory = $false)]
+        $Left,
+
+        [Parameter(Mandatory = $false)]
+        $Right
+    )
+
+    $leftJson = ConvertTo-Json -InputObject $Left -Compress -Depth 100
+    $rightJson = ConvertTo-Json -InputObject $Right -Compress -Depth 100
+    return $leftJson -eq $rightJson
+}
+
+function Test-JsonObjectContains {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Target,
+
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Source
+    )
+
+    foreach ($key in $Source.Keys) {
+        if (-not $Target.Contains($key)) {
+            return $false
+        }
+
+        $sourceValue = $Source[$key]
+        $targetValue = $Target[$key]
+        if ($sourceValue -is [System.Collections.IDictionary]) {
+            if ($targetValue -isnot [System.Collections.IDictionary] -or
+                -not (Test-JsonObjectContains -Target $targetValue -Source $sourceValue)) {
+                return $false
+            }
+        }
+        elseif (-not (Test-JsonValueEqual -Left $targetValue -Right $sourceValue)) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function Install-ClaudeSettings {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Source
+    )
+
+    $existing = Get-Item -LiteralPath $settingsDestination -Force -ErrorAction SilentlyContinue
+    if ($null -eq $existing) {
+        Copy-Item -LiteralPath $settingsSource -Destination $settingsDestination
+        Write-Output "已创建 Claude 设置：$settingsDestination"
+        return
+    }
+
+    if ((Test-IsLinkLike -Item $existing) -or $existing.PSIsContainer) {
+        Backup-Item -Path $settingsDestination
+        Copy-Item -LiteralPath $settingsSource -Destination $settingsDestination
+        Write-Output "已重建 Claude 设置：$settingsDestination"
+        return
+    }
+
+    $target = Read-JsonObject -Path $settingsDestination
+    $changed = $false
+    Merge-JsonObject -Target $target -Source $Source -Path '$' -Changed ([ref]$changed)
+    if (-not $changed) {
+        Write-Output "Claude 设置已包含仓库配置：$settingsDestination"
+        return
+    }
+
+    Backup-Item -Path $settingsDestination
+    $target | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $settingsDestination -Encoding utf8NoBOM
+    Write-Output "已合并 Claude 设置：$settingsDestination"
 }
 
 function Test-SkillSupportsPlatform {
@@ -301,6 +443,28 @@ function Test-Installation {
         }
     }
 
+    $settingsExisting = Get-Item -LiteralPath $settingsDestination -Force -ErrorAction SilentlyContinue
+    $settingsCurrent = $false
+    if ($null -ne $settingsExisting -and
+        -not (Test-IsLinkLike -Item $settingsExisting) -and
+        -not $settingsExisting.PSIsContainer) {
+        try {
+            $settingsTarget = Read-JsonObject -Path $settingsDestination
+            $settingsCurrent = Test-JsonObjectContains -Target $settingsTarget -Source $settingsSourceObject
+        }
+        catch {
+            Write-Warning $_.Exception.Message
+        }
+    }
+
+    if ($settingsCurrent) {
+        Write-Information "Claude 设置状态一致：$settingsDestination" -InformationAction Continue
+    }
+    else {
+        Write-Warning "Claude 设置状态不一致：$settingsDestination 缺少仓库配置"
+        $consistent = $false
+    }
+
     if ($consistent) {
         Write-Information '安装状态一致' -InformationAction Continue
     }
@@ -310,6 +474,12 @@ function Test-Installation {
 
     return $consistent
 }
+
+if (-not (Test-Path -LiteralPath $settingsSource -PathType Leaf)) {
+    throw "Claude 设置源文件不存在：$settingsSource"
+}
+$settingsSource = (Resolve-Path -LiteralPath $settingsSource).Path
+$settingsSourceObject = Read-JsonObject -Path $settingsSource
 
 if ($Check) {
     if (Test-Installation) {
@@ -333,3 +503,6 @@ foreach ($file in $globalAgentsFiles) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $file.Destination) -Force | Out-Null
     Install-GlobalAgentsFile -Source $file.Source -Destination $file.Destination
 }
+
+New-Item -ItemType Directory -Path (Split-Path -Parent $settingsDestination) -Force | Out-Null
+Install-ClaudeSettings -Source $settingsSourceObject

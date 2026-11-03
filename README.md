@@ -18,6 +18,8 @@ pwsh -NoProfile -File .\scripts\install.ps1
 
 安装器将全局提示词分别复制到 `~/.codex/AGENTS.md` 和 `~/.claude/CLAUDE.md`，并将当前平台支持的 Skills 软链接到 `~/.agents/skills` 和 `~/.claude/skills`。
 
+安装器会将 `claude/settings.json` 合并到 `~/.claude/settings.json`：仓库配置覆盖同名键，其他配置保留。
+
 重复安装会保留未变化的文件和链接；冲突项先备份为 `.bak.<timestamp>`，仓库中已删除 Skill 的受管链接会被清理，其他 Skills 保持不变。
 
 只读检查当前账户的安装状态，发现缺失、冲突、内容变化或陈旧受管链接时返回非零退出码：
@@ -29,6 +31,8 @@ pwsh -NoProfile -File .\scripts\install.ps1
 ```powershell
 pwsh -NoProfile -File .\scripts\install.ps1 -Check
 ```
+
+安装时可使用 `--no-backup` 或 `-NoBackup`，冲突项直接替换且不生成备份。
 
 ## 验证
 
