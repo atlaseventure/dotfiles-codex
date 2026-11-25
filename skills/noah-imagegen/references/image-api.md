@@ -13,7 +13,7 @@
 - `output_format` 接受 PNG、JPEG 或 WebP；JPEG/WebP 可设置 `output_compression`。
 - `input_fidelity` 仅用于编辑，按服务端能力选用；默认不发送。
 
-显式选择 `gpt-image-2` 时，脚本保留上游规则：最长边不超过 3840，两边为 16 的倍数，长短边比不超过 3:1，总像素为 655,360～8,294,400；拒绝透明背景和 `input_fidelity` 参数。这些规则不套用到 `gpt-image-2.5-sunburst`。
+仅显式选择 `gpt-image-2` 时，脚本要求最长边不超过 3840，两边为 16 的倍数，长短边比不超过 3:1，总像素为 655,360～8,294,400，并拒绝透明背景和 `input_fidelity` 参数。
 
 ## 编辑与透明素材
 

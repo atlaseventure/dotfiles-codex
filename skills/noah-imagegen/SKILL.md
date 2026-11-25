@@ -11,7 +11,7 @@ description: 通过 CLI/API 生成或编辑位图，支持参考图、多图合�
 
 - 在本地设置 `CPA_BASE_URL`（包含 API 版本路径的基础地址）和 `CPA_API_KEY`（API 密钥）。不要在聊天、命令参数或仓库中写入密钥。
 - 安装 `openai`；检查透明度或缩放时安装 `pillow`。uv 环境使用 `uv pip install openai pillow`。
-- 默认模型为 `gpt-image-2.5-sunburst`；默认尺寸为 `auto`、质量为 `medium`。用户指定模型时使用 `--model`，不自动更换模型。
+- 默认模型为 `gpt-image-2.6-sunburst`，默认尺寸为 `auto`、质量为 `medium`。用户指定模型时使用 `--model`，不自动更换模型。
 - 尺寸接受 `auto` 或正整数 `WIDTHxHEIGHT`，不使用旧尺寸枚举限制。服务端决定模型实际支持的尺寸；显式选择 `gpt-image-2` 时保留其专用尺寸校验。
 - 草稿使用 `low`；最终素材、密集文字和精细编辑按需求使用 `medium`、`high` 或 `auto`。
 - 参数不受服务端支持时报告具体错误，不推断其他模型的能力适用于默认模型。
